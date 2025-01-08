@@ -48,13 +48,5 @@ class Player:
         self.race = race
         #self.stats = self.RACES[race].copy()
         self.stats = self.RACES[race].copy()
-    
-    def print_player(self):
-        print("name : "+self.name +"\n")
-        print("position x : "+str(self.x) +"\n")
-        print("position y : "+str(self.y) +"\n")
-        print("race : "+self.race +"\n")
 
-joueur1 = Player("lotfi",2,3,'singe_hurleur')
-joueur1.print_player()
 
