@@ -46,5 +46,6 @@ class Player:
         if race not in self.RACES:
             raise ValueError(f"Race invalide. Choisissez parmi : {', '.join(self.RACES.keys())}")
         self.race = race
+        #self.stats = self.RACES[race].copy()
         self.stats = self.RACES[race].copy()
 
