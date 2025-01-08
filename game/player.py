@@ -62,12 +62,25 @@ class Player:
         # Faction du joueur
         if faction not in self.FACTIONS:
             raise ValueError(f"Faction invalide. Choisissez parmi : {', '.join(self.FACTIONS)}")
-        self.faction = faction
-        self.faction_stats = self.FACTIONS[faction].copy() # stats de la faction
+        
 
         # points de vie du joueur
         self.hp = 100
 
         # points d'expérience du joueur
         self.xp = 0
+
+    def print_player(self):
+        print(f"Nom : {self.name}")
+        print(f"Position : ({self.x}, {self.y})")
+        print(f"Race : {self.race}")
+        print(f"Points de vie : {self.hp}")
+        print(f"Expérience : {self.xp}")
+        print("\nStatistiques de race :")
+        for stat, value in self.race_stats.items():
+            print(f"- {stat.capitalize()} : {value}")
+
+# Création du joueur avec une faction
+joueur1 = Player("lotfi", 2, 3, 'singe_hurleur', "Les Veilleurs des Montagnes")
+joueur1.print_player()
 
