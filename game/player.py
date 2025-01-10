@@ -1,4 +1,5 @@
 import os 
+from .factions import FactionName, FACTIONS
 
 class Player:
     RACES = {
@@ -70,6 +71,9 @@ class Player:
         # points d'expérience du joueur
         self.xp = 0
 
+        self.faction = faction
+        self.faction_obj = FACTIONS[faction]
+
     def print_player(self):
         print(f"Nom : {self.name}")
         print(f"Position : ({self.x}, {self.y})")
@@ -79,6 +83,10 @@ class Player:
         print("\nStatistiques de race :")
         for stat, value in self.race_stats.items():
             print(f"- {stat.capitalize()} : {value}")
+
+    def get_relation_with(self, other_faction: FactionName):
+        """Retourne la relation entre la faction du joueur et une autre faction"""
+        return self.faction_obj.get_relation(other_faction)
 
 # Création du joueur avec une faction
 joueur1 = Player("lotfi", 2, 3, 'singe_hurleur', "Les Veilleurs des Montagnes")
