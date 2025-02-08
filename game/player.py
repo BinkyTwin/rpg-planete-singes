@@ -1,5 +1,6 @@
 import os 
 from .factions import FactionName, FACTIONS
+from .inventory import Inventory
 
 class Player:
     RACES = {
@@ -46,7 +47,7 @@ class Player:
         "Les Enfants de la Forêt"
     }
 
-    def __init__(self, name, x, y, race, faction):
+    def __init__(self, name, x, y, race, faction: FactionName):
         # nom du joueur
         self.name = name
 
@@ -61,9 +62,8 @@ class Player:
         self.race_stats = self.RACES[race].copy() # stats de la race
 
         # Faction du joueur
-        if faction not in self.FACTIONS:
-            raise ValueError(f"Faction invalide. Choisissez parmi : {', '.join(self.FACTIONS)}")
-        
+        self.faction = faction
+        self.faction_obj = FACTIONS[faction]
 
         # points de vie du joueur
         self.hp = 100
@@ -71,8 +71,8 @@ class Player:
         # points d'expérience du joueur
         self.xp = 0
 
-        self.faction = faction
-        self.faction_obj = FACTIONS[faction]
+        # Ajout de l'inventaire
+        self.inventory = Inventory()
 
     def print_player(self):
         print(f"Nom : {self.name}")
@@ -83,12 +83,11 @@ class Player:
         print("\nStatistiques de race :")
         for stat, value in self.race_stats.items():
             print(f"- {stat.capitalize()} : {value}")
+        print(f"Slots d'inventaire : {len(self.inventory.get_items())}/{self.inventory.max_slots}")
 
     def get_relation_with(self, other_faction: FactionName):
         """Retourne la relation entre la faction du joueur et une autre faction"""
         return self.faction_obj.get_relation(other_faction)
 
-# Création du joueur avec une faction
-joueur1 = Player("lotfi", 2, 3, 'singe_hurleur', "Les Veilleurs des Montagnes")
-joueur1.print_player()
+
 
