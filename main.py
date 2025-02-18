@@ -1,9 +1,11 @@
 from game.player import Player
 from game.factions import FactionName, FACTIONS
 from game.inventory import Inventory
-from game.items import ITEMS
+from game.items import ITEMS, ItemType
 from game.map import Map, TileType
 from game.spawn_manager import SpawnManager
+from game.combat_system import CombatSystem
+from random import randint
 
 def afficher_races_disponibles():
     print("\nRaces disponibles :")
@@ -28,20 +30,27 @@ def afficher_inventaire(player):
     items = player.inventory.get_items()
     if not items:
         print("L'inventaire est vide")
-        return
+    else:
+        print(f"Slots utilisés : {len(items)}/{player.inventory.max_slots}")
+        print("\nObjets :")
+        for i, item in enumerate(items, 1):
+            equipped = " [ÉQUIPÉ]" if item == player.inventory.get_equipped_item() else ""
+            print(f"{i}. {item}{equipped}")
     
-    print(f"Slots utilisés : {len(items)}/{player.inventory.max_slots}")
-    print("\nObjets :")
-    for i, item in enumerate(items, 1):
-        print(f"{i}. {item.name} - {item.description} (Valeur: {item.value})")
+    equipped_item = player.inventory.get_equipped_item()
+    if equipped_item:
+        print(f"\nItem équipé : {equipped_item}")
+    else:
+        print("\nAucun item équipé")
 
-def gerer_inventaire(player):
+def gerer_inventaire(player, game_map, spawn_manager):
     while True:
         print("\n=== Gestion de l'inventaire ===")
         print("1. Voir l'inventaire")
-        print("2. Ajouter un objet")
+        print("2. Ramasser un objet")
         print("3. Jeter un objet")
-        print("4. Retour au menu principal")
+        print("4. Équiper/Déséquiper un objet")
+        print("5. Retour au menu principal")
         
         choix = input("\nVotre choix : ").strip()
         
@@ -49,27 +58,34 @@ def gerer_inventaire(player):
             afficher_inventaire(player)
         
         elif choix == "2":
-            while True:
-                print("\nObjets disponibles :")
-                print("0. Retour au menu précédent")
-                items_list = list(ITEMS.values())
-                for i, item in enumerate(items_list, 1):
-                    print(f"{i}. {item.name} - {item.description}")
+            # Vérifie s'il y a un objet sur la position actuelle du joueur
+            x, y = game_map.player_pos
+            item = spawn_manager.get_item_at_position(x, y)
+            
+            if not item:
+                print("\nIl n'y a aucun objet à ramasser ici.")
+                continue
                 
-                try:
-                    choix_item = int(input("\nChoisissez un objet à ajouter (0 pour retourner) : "))
-                    if choix_item == 0:
-                        break
-                    if 1 <= choix_item <= len(items_list):
-                        item = items_list[choix_item - 1]
-                        if player.inventory.add_item(item):
-                            print(f"\n{item.name} a été ajouté à l'inventaire")
-                        else:
-                            print("\nL'inventaire est plein !")
+            print("\n=== Objet disponible ===")
+            print(f"Nom : {item.name}")
+            print(f"Type : {item.item_type.value}")
+            print(f"Description : {item.description}")
+            print(f"Valeur : {item.value}")
+            
+            while True:
+                choix = input("\nVoulez-vous ramasser cet objet ? (o/n) : ").lower().strip()
+                if choix == 'o':
+                    if player.inventory.add_item(item):
+                        spawn_manager.remove_item(x, y)
+                        print(f"\nVous avez ramassé : {item.name}")
                     else:
-                        print("\nNuméro d'objet invalide")
-                except ValueError:
-                    print("\nVeuillez entrer un numéro valide")
+                        print("\nVotre inventaire est plein !")
+                    break
+                elif choix == 'n':
+                    print("\nVous laissez l'objet au sol.")
+                    break
+                else:
+                    print("Choix invalide. Veuillez répondre par 'o' (oui) ou 'n' (non).")
         
         elif choix == "3":
             items = player.inventory.get_items()
@@ -82,14 +98,65 @@ def gerer_inventaire(player):
                 choix_item = int(input("\nChoisissez un objet à jeter (numéro) : "))
                 if 1 <= choix_item <= len(items):
                     item = items[choix_item - 1]
+                    x, y = game_map.player_pos
+                    
+                    # Vérifie si la case actuelle est déjà occupée par un item
+                    if spawn_manager.get_item_at_position(x, y):
+                        print("\nIl y a déjà un objet ici. Déplacez-vous pour jeter cet objet.")
+                        continue
+                    
                     if player.inventory.remove_item(item):
-                        print(f"\n{item.name} a été retiré de l'inventaire")
+                        # Ajoute l'item à la position actuelle du joueur
+                        game_map.add_item(TileType.ITEM, x, y)
+                        spawn_manager.spawned_items.append((item, x, y))
+                        print(f"\nVous avez jeté : {item.name}")
                 else:
                     print("\nNuméro d'objet invalide")
             except ValueError:
                 print("\nVeuillez entrer un numéro valide")
         
         elif choix == "4":
+            items = player.inventory.get_items()
+            if not items:
+                print("\nL'inventaire est vide")
+                continue
+            
+            print("\n=== Équipement ===")
+            equipped_item = player.inventory.get_equipped_item()
+            if equipped_item:
+                print(f"Item actuellement équipé : {equipped_item}")
+                if input("\nVoulez-vous le déséquiper ? (o/n) : ").lower().strip() == 'o':
+                    player.inventory.unequip_item()
+                    print("Item déséquipé.")
+                continue
+
+            print("\nObjets équipables :")
+            equipable_items = [(i, item) for i, item in enumerate(items, 1) 
+                             if item.item_type in [ItemType.WEAPON, ItemType.ARMOR]]
+            
+            if not equipable_items:
+                print("Aucun objet équipable dans l'inventaire")
+                continue
+
+            for i, item in equipable_items:
+                print(f"{i}. {item}")
+            
+            try:
+                choix_item = int(input("\nChoisissez un objet à équiper (0 pour annuler) : "))
+                if choix_item == 0:
+                    continue
+                if 1 <= choix_item <= len(equipable_items):
+                    item = equipable_items[choix_item - 1][1]
+                    if player.inventory.equip_item(item):
+                        print(f"\n{item.name} a été équipé !")
+                    else:
+                        print("\nImpossible d'équiper cet objet.")
+                else:
+                    print("\nNuméro d'objet invalide")
+            except ValueError:
+                print("\nVeuillez entrer un numéro valide")
+        
+        elif choix == "5":
             break
         
         else:
@@ -140,7 +207,7 @@ def creer_personnage():
     
     return player
 
-def gerer_deplacement(player, game_map):
+def gerer_deplacement(player, game_map, spawn_manager):
     while True:
         print("\n=== Déplacement ===")
         game_map.display()
@@ -154,13 +221,13 @@ def gerer_deplacement(player, game_map):
         commande = input("\nVotre choix : ").lower().strip()
         
         if commande == "z":
-            success, message = game_map.move_player(0, -1)
+            success, message, item_pos = game_map.move_player(0, -1)
         elif commande == "s":
-            success, message = game_map.move_player(0, 1)
+            success, message, item_pos = game_map.move_player(0, 1)
         elif commande == "q":
-            success, message = game_map.move_player(-1, 0)
+            success, message, item_pos = game_map.move_player(-1, 0)
         elif commande == "d":
-            success, message = game_map.move_player(1, 0)
+            success, message, item_pos = game_map.move_player(1, 0)
         elif commande == "r":
             break
         else:
@@ -169,6 +236,181 @@ def gerer_deplacement(player, game_map):
 
         if message:  # Si il y a un message à afficher
             print(f"\n{message}")
+            
+        # Gestion de la découverte d'items
+        if item_pos:
+            x, y = item_pos
+            item = spawn_manager.get_item_at_position(x, y)
+            if item:
+                print("\n=== Objet trouvé ! ===")
+                print(f"Nom : {item.name}")
+                print(f"Type : {item.item_type.value}")
+                print(f"Description : {item.description}")
+                print(f"Valeur : {item.value}")
+                
+                while True:
+                    choix = input("\nVoulez-vous ramasser cet objet ? (o/n) : ").lower().strip()
+                    if choix == 'o':
+                        if player.inventory.add_item(item):
+                            spawn_manager.remove_item(x, y)
+                            print(f"\nVous avez ramassé : {item.name}")
+                        else:
+                            print("\nVotre inventaire est plein !")
+                            # Remet le symbole de l'item sur la carte
+                            game_map.add_item(TileType.ITEM, x, y)
+                        break
+                    elif choix == 'n':
+                        # Remet le symbole de l'item sur la carte
+                        game_map.add_item(TileType.ITEM, x, y)
+                        print("\nVous laissez l'objet au sol.")
+                        break
+                    else:
+                        print("Choix invalide. Veuillez répondre par 'o' (oui) ou 'n' (non).")
+        
+        # Met à jour le spawn manager
+        spawn_manager.update()
+
+        # Après chaque déplacement réussi
+        if success:
+            # Vérifie si un ennemi est adjacent
+            for enemy in spawn_manager.spawned_enemies:
+                if enemy.is_adjacent_to(*game_map.player_pos):
+                    print("\nUn ennemi est proche !")
+                    combat_result = gerer_combat(player, enemy, game_map, spawn_manager)
+                    if combat_result == True:  # Victoire
+                        spawn_manager.spawned_enemies.remove(enemy)
+                        game_map.remove_item(enemy.x, enemy.y)
+                    elif combat_result == False:  # Défaite
+                        print("\nGame Over")
+                        return False
+                    elif combat_result == "fled":  # Fuite
+                        # Logique de fuite
+                        pass
+
+def gerer_combat(player, enemy, game_map, spawn_manager):
+    while True:
+        print("\n=== Combat ===")
+        print(f"Ennemi : {enemy.name} de la faction {enemy.faction.value}")
+        print(f"Points de vie de l'ennemi : {enemy.hp}")
+        print(f"Vos points de vie : {player.hp}")
+        
+        if player.inventory.get_equipped_item():
+            print(f"Arme équipée : {player.inventory.get_equipped_item()}")
+        else:
+            print("Aucune arme équipée")
+        
+        print("\nActions disponibles :")
+        print("1. Attaquer")
+        print("2. Se défendre (et accéder à l'inventaire)")
+        print("3. Tenter de fuir")
+        
+        choix = input("\nVotre choix : ").strip()
+        
+        if choix == "1":
+            # Phase d'attaque du joueur
+            weapon = player.inventory.get_equipped_item()
+            damage, is_fatal = CombatSystem.attack(player, enemy, weapon)
+            print(f"\nVous infligez {damage} points de dégâts !")
+            
+            if is_fatal:
+                print("L'ennemi a été vaincu !")
+                return True
+            
+            # Phase d'attaque de l'ennemi
+            enemy_damage, player_dead = CombatSystem.attack(enemy, player, enemy.equipped_weapon)
+            print(f"L'ennemi vous inflige {enemy_damage} points de dégâts !")
+            
+            if player_dead:
+                print("Vous avez été vaincu !")
+                return False
+                
+        elif choix == "2":
+            print("\n=== Mode Défense ===")
+            print("1. Gérer l'inventaire")
+            print("2. Utiliser une potion")
+            print("3. Changer d'arme")
+            print("4. Retour au combat")
+            
+            action = input("\nQue souhaitez-vous faire ? ").strip()
+            
+            if action == "1":
+                gerer_inventaire(player, game_map, spawn_manager)
+            elif action == "2":
+                # Cherche les potions dans l'inventaire
+                potions = [(i, item) for i, item in enumerate(player.inventory.get_items()) 
+                          if item.item_type == ItemType.POTION]
+                
+                if not potions:
+                    print("Vous n'avez pas de potions !")
+                else:
+                    print("\nPotions disponibles :")
+                    for i, (_, potion) in enumerate(potions, 1):
+                        print(f"{i}. {potion}")
+                    
+                    try:
+                        choix_potion = int(input("\nChoisissez une potion (0 pour annuler) : "))
+                        if 1 <= choix_potion <= len(potions):
+                            potion = potions[choix_potion-1][1]
+                            player.hp = min(100, player.hp + potion.value)
+                            player.inventory.remove_item(potion)
+                            print(f"\nVous utilisez {potion.name} et récupérez {potion.value} HP !")
+                    except ValueError:
+                        print("Choix invalide")
+                        
+            elif action == "3":
+                # Affiche les armes disponibles
+                weapons = [(i, item) for i, item in enumerate(player.inventory.get_items()) 
+                          if item.item_type == ItemType.WEAPON]
+                
+                if not weapons:
+                    print("Vous n'avez pas d'armes !")
+                else:
+                    print("\nArmes disponibles :")
+                    for i, (_, weapon) in enumerate(weapons, 1):
+                        print(f"{i}. {weapon}")
+                    
+                    try:
+                        choix_arme = int(input("\nChoisissez une arme (0 pour annuler) : "))
+                        if 1 <= choix_arme <= len(weapons):
+                            weapon = weapons[choix_arme-1][1]
+                            player.inventory.equip_item(weapon)
+                            print(f"\nVous équipez {weapon.name} !")
+                    except ValueError:
+                        print("Choix invalide")
+            
+            # L'ennemi attaque avec dégâts réduits
+            enemy_damage, player_dead = CombatSystem.attack(enemy, player, enemy.equipped_weapon, defense_mode=True)
+            print(f"\nEn défense, l'ennemi vous inflige {enemy_damage} points de dégâts (réduits) !")
+            
+            if player_dead:
+                print("Vous avez été vaincu !")
+                return False
+                
+        elif choix == "3":
+            # Tentative de fuite basée sur l'agilité
+            chance_fuite = player.race_stats['agilite'] * 10  # 50-90% selon l'agilité
+            if randint(1, 100) <= chance_fuite:
+                print("Vous parvenez à fuir le combat !")
+                # Trouve une case libre adjacente pour la fuite
+                for dx, dy in [(0,1), (0,-1), (1,0), (-1,0)]:
+                    new_x = player.x + dx
+                    new_y = player.y + dy
+                    if (game_map.is_valid_position(new_x, new_y) and 
+                        game_map.grid[new_y][new_x] == TileType.EMPTY.value):
+                        game_map.move_player(dx, dy)
+                        return "fled"
+                print("Mais vous êtes coincé !")
+            else:
+                print("Tentative de fuite échouée !")
+                # L'ennemi attaque pendant la fuite
+                enemy_damage, player_dead = CombatSystem.attack(enemy, player, enemy.equipped_weapon)
+                print(f"L'ennemi vous inflige {enemy_damage} points de dégâts !")
+                
+                if player_dead:
+                    print("Vous avez été vaincu !")
+                    return False
+        else:
+            print("Choix invalide")
 
 def menu_principal():
     player = None
@@ -177,36 +419,48 @@ def menu_principal():
     
     while True:
         print("\n=== Menu Principal ===")
-        print("1. Créer un nouveau personnage")
-        if player:
+        if not player:
+            print("1. Créer un nouveau personnage")
+            print("2. Quitter")
+        else:
+            print("1. Afficher les statistiques")
             print("2. Gérer l'inventaire")
             print("3. Se déplacer")
             print("4. Quitter")
-        else:
-            print("2. Quitter")
         
         choix = input("\nVotre choix : ").strip()
         
-        if choix == "1":
-            player = creer_personnage()
-            game_map = Map(10, 8)
-            game_map.generate_default_map()
-            spawn_manager = SpawnManager(game_map)
-            # Spawn initial d'items
-            for _ in range(2):  # Spawn initial de 2 items
-                spawn_manager.spawn_item()
-        elif choix == "2" and player:
-            gerer_inventaire(player)
-        elif choix == "2" and not player:
-            print("Au revoir !")
-            break
-        elif choix == "3" and player:
-            gerer_deplacement(player, game_map)
-        elif choix == "4" and player:
-            print("Au revoir !")
-            break
+        if not player:
+            if choix == "1":
+                player = creer_personnage()
+                game_map = Map(10, 8)
+                game_map.generate_default_map()
+                spawn_manager = SpawnManager(game_map)
+                
+                # Spawn initial d'items
+                for _ in range(2):
+                    spawn_manager.spawn_item()
+                
+                # Spawn d'un ennemi au milieu de la map
+                spawn_manager.spawn_enemy_middle(player.faction)
+            elif choix == "2":
+                print("Au revoir !")
+                break
+            else:
+                print("Choix invalide. Veuillez réessayer.")
         else:
-            print("Choix invalide. Veuillez réessayer.")
+            if choix == "1":
+                print("\n=== Statistiques du personnage ===")
+                player.print_player()
+            elif choix == "2":
+                gerer_inventaire(player, game_map, spawn_manager)
+            elif choix == "3":
+                gerer_deplacement(player, game_map, spawn_manager)
+            elif choix == "4":
+                print("Au revoir !")
+                break
+            else:
+                print("Choix invalide. Veuillez réessayer.")
 
 if __name__ == "__main__":
     print("Bienvenue dans le jeu des Singes !")

@@ -11,18 +11,63 @@ class Item:
         self.name = name
         self.item_type = item_type
         self.description = description
-        self.value = value
+        self.value = value  # Dégâts pour WEAPON, bonus HP pour ARMOR, restauration HP pour POTION
 
     def __str__(self):
-        return f"{self.name} ({self.item_type.value})"
+        if self.item_type == ItemType.WEAPON:
+            return f"{self.name} (Dégâts: {self.value})"
+        elif self.item_type == ItemType.ARMOR:
+            return f"{self.name} (Bonus HP: +{self.value})"
+        elif self.item_type == ItemType.POTION:
+            return f"{self.name} (Restaure {self.value} HP)"
 
-# Quelques objets prédéfinis 
+# Objets prédéfinis avec leurs effets
 ITEMS = {
-    "épée_rouillée": Item("Épée rouillée", ItemType.WEAPON, "Une vieille épée usée", 10),
-    "m4": Item("M4", ItemType.WEAPON, "Un fusil d'assaut", 20),
-    "glock": Item("Glock", ItemType.WEAPON, "Un pistolet", 15),
-    "banane": Item("Banane", ItemType.POTION, "Une banane bien mûre qui restaure 20 points de vie", 20),
-    "banane_plantin": Item("Banane plantin", ItemType.POTION, "Une banane plantin qui restaure 30 points de vie", 30),
-    "armure_cuir": Item("Armure en cuir", ItemType.ARMOR, "Protection basique", 20),
-    "pierre_précieuse": Item("Pierre précieuse", ItemType.MISC, "Une gemme brillante", 50)
+    # Armes (value = dégâts)
+    "épée_rouillée": Item(
+        "Épée rouillée", 
+        ItemType.WEAPON, 
+        "Une vieille épée usée mais qui peut encore faire mal", 
+        15
+    ),
+    "m4": Item(
+        "M4", 
+        ItemType.WEAPON, 
+        "Un fusil d'assaut puissant et précis", 
+        25
+    ),
+    "glock": Item(
+        "Glock", 
+        ItemType.WEAPON, 
+        "Un pistolet fiable et efficace", 
+        20
+    ),
+    
+    # Armures (value = bonus HP)
+    "armure_cuir": Item(
+        "Armure en cuir", 
+        ItemType.ARMOR, 
+        "Une protection basique mais efficace", 
+        20
+    ),
+    "gilet_pare_balles": Item(
+        "Gilet pare-balles", 
+        ItemType.ARMOR, 
+        "Une protection moderne contre les projectiles", 
+        35
+    ),
+    
+    # Potions (value = HP restaurés)
+    "banane": Item(
+        "Banane", 
+        ItemType.POTION, 
+        "Une banane bien mûre qui restaure des points de vie", 
+        20
+    ),
+    "banane_plantin": Item(
+        "Banane plantin", 
+        ItemType.POTION, 
+        "Une banane plantin rare et nourrissante", 
+        30
+    )
 } 

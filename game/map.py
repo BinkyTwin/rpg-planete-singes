@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from enum import Enum
 
 class TileType(Enum):
@@ -35,17 +35,26 @@ class Map:
         self.grid[y][x] = TileType.EMPTY.value
         return True
 
-    def move_player(self, dx: int, dy: int) -> tuple[bool, str]:
-        """Déplace le joueur selon les deltas donnés et retourne un message"""
+    def move_player(self, dx: int, dy: int) -> tuple[bool, str, Optional[Tuple[int, int]]]:
+        """
+        Déplace le joueur selon les deltas donnés
+        Retourne (succès, message, position_item)
+        position_item est renvoyé si le joueur arrive sur un item
+        """
         new_x = self.player_pos[0] + dx
         new_y = self.player_pos[1] + dy
 
         if not self.is_valid_position(new_x, new_y):
-            return False, "Halte soldat ! Vous ne pouvez pas quitter la zone sécurisée."
+            return False, "Halte soldat ! Vous ne pouvez pas quitter la zone sécurisée.", None
         
         # Vérifie si la nouvelle position n'est pas un mur
         if self.grid[new_y][new_x] == TileType.WALL.value:
-            return False, "Un mur vous bloque le passage, impossible d'aller par là."
+            return False, "Un mur vous bloque le passage, impossible d'aller par là.", None
+
+        # Vérifie si la nouvelle position contient un item
+        found_item = None
+        if self.grid[new_y][new_x] == TileType.ITEM.value:
+            found_item = (new_x, new_y)
 
         # Efface l'ancienne position du joueur
         self.grid[self.player_pos[1]][self.player_pos[0]] = TileType.EMPTY.value
@@ -53,7 +62,7 @@ class Map:
         # Met à jour la nouvelle position
         self.player_pos = (new_x, new_y)
         self.grid[new_y][new_x] = TileType.PLAYER.value
-        return True, ""
+        return True, "", found_item
 
     def display(self):
         """Affiche la carte avec sa légende"""

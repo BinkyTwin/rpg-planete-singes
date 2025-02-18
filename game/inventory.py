@@ -1,10 +1,11 @@
 from typing import List, Optional
-from .items import Item
+from .items import Item, ItemType
 
 class Inventory:
     def __init__(self, max_slots: int = 15):
         self.max_slots = max_slots
         self.items: List[Item] = []
+        self.equipped_item: Optional[Item] = None  # Item actuellement équipé
 
     def add_item(self, item: Item) -> bool:
         """
@@ -19,12 +20,37 @@ class Inventory:
     def remove_item(self, item: Item) -> bool:
         """
         Retire un item de l'inventaire
-        Retourne True si le retrait est réussi, False sinon
+        Si l'item est équipé, il est déséquipé
         """
         if item in self.items:
+            if self.equipped_item == item:
+                self.equipped_item = None
             self.items.remove(item)
             return True
         return False
+
+    def equip_item(self, item: Item) -> bool:
+        """
+        Équipe un item s'il est dans l'inventaire et équipable
+        """
+        if item not in self.items:
+            return False
+        
+        if item.item_type not in [ItemType.WEAPON, ItemType.ARMOR]:
+            return False
+
+        self.equipped_item = item
+        return True
+
+    def unequip_item(self) -> Optional[Item]:
+        """Déséquipe l'item actuel"""
+        previous_item = self.equipped_item
+        self.equipped_item = None
+        return previous_item
+
+    def get_equipped_item(self) -> Optional[Item]:
+        """Retourne l'item équipé"""
+        return self.equipped_item
 
     def get_items(self) -> List[Item]:
         """Retourne la liste des items dans l'inventaire"""

@@ -2,22 +2,25 @@ from typing import List, Tuple, Optional
 from random import randint, choice, random
 from .items import ITEMS, Item, ItemType
 from .map import Map, TileType
+from .enemy import Enemy
+from .factions import FactionName, FACTIONS
 
 class SpawnManager:
     def __init__(self, game_map: Map):
         self.game_map = game_map
         self.spawned_items: List[Tuple[Item, int, int]] = []  # Liste des items avec leurs positions
+        self.spawned_enemies: List[Enemy] = []
         
         # Calcul du nombre maximum d'items basé sur la taille de la carte
         map_size = self.game_map.width * self.game_map.height
         self.max_items = max(2, map_size // 50)  # 1 item pour 50 cases, minimum 2 items
+        self.max_enemies = max(1, map_size // 100)  # 1 ennemi pour 100 cases
         
-        # Probabilités de spawn par type d'item
+        # Nouvelles probabilités de spawn par type d'item
         self.spawn_weights = {
-            ItemType.WEAPON: 0.3,    # 30% de chance pour les armes
-            ItemType.ARMOR: 0.2,     # 20% de chance pour les armures
-            ItemType.POTION: 0.4,    # 40% de chance pour les potions
-            ItemType.MISC: 0.1       # 10% de chance pour les objets divers
+            ItemType.WEAPON: 0.35,    # 35% de chance pour les armes
+            ItemType.ARMOR: 0.30,     # 30% de chance pour les armures
+            ItemType.POTION: 0.35     # 35% de chance pour les potions
         }
 
     def get_random_empty_position(self) -> Optional[Tuple[int, int]]:
@@ -60,7 +63,7 @@ class SpawnManager:
 
         # Sélectionne un item aléatoire du type choisi
         available_items = items_by_type[selected_type]
-        return choice(available_items) if available_items else choice(list(ITEMS.values()))
+        return choice(available_items)
 
     def spawn_item(self) -> bool:
         """Tente de faire apparaître un nouvel item sur la carte"""
@@ -99,4 +102,51 @@ class SpawnManager:
         for item, item_x, item_y in self.spawned_items:
             if item_x == x and item_y == y:
                 return item
-        return None 
+        return None
+
+    def spawn_enemy(self, player_faction: FactionName) -> bool:
+        """Fait apparaître un ennemi d'une faction hostile"""
+        if len(self.spawned_enemies) >= self.max_enemies:
+            return False
+        
+        position = self.get_random_empty_position()
+        if not position:
+            return False
+        
+        # Sélectionne une faction hostile au joueur
+        hostile_factions = [faction for faction in FactionName 
+                           if FACTIONS[player_faction].get_relation(faction).value == "hostile"]
+        if not hostile_factions:
+            return False
+        
+        enemy_faction = choice(hostile_factions)
+        x, y = position
+        
+        enemy = Enemy(f"Ennemi {len(self.spawned_enemies) + 1}", enemy_faction, x, y)
+        self.game_map.add_item(TileType.ENEMY, x, y)
+        self.spawned_enemies.append(enemy)
+        return True
+
+    def spawn_enemy_middle(self, player_faction: FactionName) -> bool:
+        """Fait apparaître un ennemi vers le milieu de la map"""
+        if len(self.spawned_enemies) >= self.max_enemies:
+            return False
+        
+        # Calcule une position vers le milieu de la map
+        middle_y = self.game_map.height // 2
+        # Essaie plusieurs positions x pour trouver une case vide
+        for x in range(2, self.game_map.width - 2):  # Évite les bords
+            if self.game_map.grid[middle_y][x] == TileType.EMPTY.value:
+                # Sélectionne une faction hostile au joueur
+                hostile_factions = [faction for faction in FactionName 
+                                  if FACTIONS[player_faction].get_relation(faction).value == "hostile"]
+                if not hostile_factions:
+                    return False
+                
+                enemy_faction = choice(hostile_factions)
+                enemy = Enemy(f"Ennemi {len(self.spawned_enemies) + 1}", enemy_faction, x, middle_y)
+                self.game_map.add_item(TileType.ENEMY, x, middle_y)
+                self.spawned_enemies.append(enemy)
+                return True
+                
+        return False 
