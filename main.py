@@ -2,6 +2,8 @@ from game.player import Player
 from game.factions import FactionName, FACTIONS
 from game.inventory import Inventory
 from game.items import ITEMS
+from game.map import Map, TileType
+from game.spawn_manager import SpawnManager
 
 def afficher_races_disponibles():
     print("\nRaces disponibles :")
@@ -138,15 +140,48 @@ def creer_personnage():
     
     return player
 
+def gerer_deplacement(player, game_map):
+    while True:
+        print("\n=== Déplacement ===")
+        game_map.display()
+        print("\nCommandes :")
+        print("z - Haut")
+        print("s - Bas")
+        print("q - Gauche")
+        print("d - Droite")
+        print("r - Retour au menu principal")
+        
+        commande = input("\nVotre choix : ").lower().strip()
+        
+        if commande == "z":
+            success, message = game_map.move_player(0, -1)
+        elif commande == "s":
+            success, message = game_map.move_player(0, 1)
+        elif commande == "q":
+            success, message = game_map.move_player(-1, 0)
+        elif commande == "d":
+            success, message = game_map.move_player(1, 0)
+        elif commande == "r":
+            break
+        else:
+            print("Commande invalide")
+            continue
+
+        if message:  # Si il y a un message à afficher
+            print(f"\n{message}")
+
 def menu_principal():
     player = None
+    game_map = None
+    spawn_manager = None
     
     while True:
         print("\n=== Menu Principal ===")
         print("1. Créer un nouveau personnage")
         if player:
             print("2. Gérer l'inventaire")
-            print("3. Quitter")
+            print("3. Se déplacer")
+            print("4. Quitter")
         else:
             print("2. Quitter")
         
@@ -154,12 +189,20 @@ def menu_principal():
         
         if choix == "1":
             player = creer_personnage()
+            game_map = Map(10, 8)
+            game_map.generate_default_map()
+            spawn_manager = SpawnManager(game_map)
+            # Spawn initial d'items
+            for _ in range(2):  # Spawn initial de 2 items
+                spawn_manager.spawn_item()
         elif choix == "2" and player:
             gerer_inventaire(player)
         elif choix == "2" and not player:
             print("Au revoir !")
             break
         elif choix == "3" and player:
+            gerer_deplacement(player, game_map)
+        elif choix == "4" and player:
             print("Au revoir !")
             break
         else:
