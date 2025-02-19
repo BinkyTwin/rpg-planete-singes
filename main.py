@@ -6,6 +6,7 @@ from game.map import Map, TileType
 from game.spawn_manager import SpawnManager
 from game.combat_system import CombatSystem
 from random import randint
+import time
 
 def afficher_races_disponibles():
     print("\nRaces disponibles :")
@@ -267,27 +268,23 @@ def gerer_deplacement(player, game_map, spawn_manager):
                     else:
                         print("Choix invalide. Veuillez répondre par 'o' (oui) ou 'n' (non).")
         
-        # Met à jour le spawn manager
-        spawn_manager.update()
-
+        # Met à jour le spawn manager avec la faction du joueur
+        spawn_manager.update_with_player_faction(player.faction)
+        
         # Après chaque déplacement réussi
         if success:
             # Vérifie si un ennemi est adjacent
             for enemy in spawn_manager.spawned_enemies:
                 if enemy.is_adjacent_to(*game_map.player_pos):
                     print("\nUn ennemi est proche !")
-                    combat_result = gerer_combat(player, enemy, game_map, spawn_manager)
-                    if combat_result == True:  # Victoire
-                        spawn_manager.spawned_enemies.remove(enemy)
-                        game_map.remove_item(enemy.x, enemy.y)
-                    elif combat_result == False:  # Défaite
-                        print("\nGame Over")
-                        return False
-                    elif combat_result == "fled":  # Fuite
+                    result = gerer_combat(player, enemy, game_map)
+                    if result == "dead":
+                        return "dead"
+                    elif result == "fled":  # Fuite
                         # Logique de fuite
                         pass
 
-def gerer_combat(player, enemy, game_map, spawn_manager):
+def gerer_combat(player, enemy, game_map):
     while True:
         print("\n=== Combat ===")
         print(f"Ennemi : {enemy.name} de la faction {enemy.faction.value}")
@@ -322,7 +319,7 @@ def gerer_combat(player, enemy, game_map, spawn_manager):
             
             if player_dead:
                 print("Vous avez été vaincu !")
-                return False
+                return "dead"
                 
         elif choix == "2":
             print("\n=== Mode Défense ===")
@@ -384,21 +381,50 @@ def gerer_combat(player, enemy, game_map, spawn_manager):
             
             if player_dead:
                 print("Vous avez été vaincu !")
-                return False
+                return "dead"
                 
         elif choix == "3":
             # Tentative de fuite basée sur l'agilité
             chance_fuite = player.race_stats['agilite'] * 10  # 50-90% selon l'agilité
             if randint(1, 100) <= chance_fuite:
                 print("Vous parvenez à fuir le combat !")
-                # Trouve une case libre adjacente pour la fuite
-                for dx, dy in [(0,1), (0,-1), (1,0), (-1,0)]:
-                    new_x = player.x + dx
-                    new_y = player.y + dy
+                # Calcule la direction opposée à l'ennemi
+                dx = player.x - enemy.x
+                dy = player.y - enemy.y
+                
+                # Normalise la direction (pour avoir un déplacement de 1 case)
+                if dx != 0:
+                    dx = dx // abs(dx)
+                if dy != 0:
+                    dy = dy // abs(dy)
+                
+                # Si le joueur est sur la même ligne/colonne que l'ennemi,
+                # choisit une direction perpendiculaire
+                if dx == 0 and dy == 0:
+                    possible_moves = [(0,1), (0,-1), (1,0), (-1,0)]
+                else:
+                    # Essaie de s'éloigner de 2 cases dans la direction opposée à l'ennemi
+                    possible_moves = [(dx*2, dy*2)]
+                    # Ajoute aussi les directions perpendiculaires comme backup
+                    if dx != 0:
+                        possible_moves.extend([(dx, 1), (dx, -1)])
+                    if dy != 0:
+                        possible_moves.extend([(1, dy), (-1, dy)])
+                
+                # Essaie chaque mouvement possible jusqu'à en trouver un valide
+                escaped = False
+                for move_dx, move_dy in possible_moves:
+                    new_x = player.x + move_dx
+                    new_y = player.y + move_dy
                     if (game_map.is_valid_position(new_x, new_y) and 
                         game_map.grid[new_y][new_x] == TileType.EMPTY.value):
-                        game_map.move_player(dx, dy)
-                        return "fled"
+                        success, _, _ = game_map.move_player(move_dx, move_dy)
+                        if success:
+                            escaped = True
+                            break
+                
+                if escaped:
+                    return "fled"
                 print("Mais vous êtes coincé !")
             else:
                 print("Tentative de fuite échouée !")
@@ -408,7 +434,7 @@ def gerer_combat(player, enemy, game_map, spawn_manager):
                 
                 if player_dead:
                     print("Vous avez été vaincu !")
-                    return False
+                    return "dead"
         else:
             print("Choix invalide")
 
@@ -416,10 +442,22 @@ def menu_principal():
     player = None
     game_map = None
     spawn_manager = None
+    game_over = False
+    start_time = None
     
     while True:
         print("\n=== Menu Principal ===")
-        if not player:
+        if game_over:
+            elapsed_time = time.time() - start_time
+            minutes = int(elapsed_time // 60)
+            seconds = int(elapsed_time % 60)
+            print(f"\n=== GAME OVER ===")
+            print(f"Temps de survie : {minutes} minutes et {seconds} secondes")
+            print("\nStatistiques finales du personnage :")
+            player.print_player()
+            print("\n1. Créer un nouveau personnage")
+            print("2. Quitter")
+        elif not player:
             print("1. Créer un nouveau personnage")
             print("2. Quitter")
         else:
@@ -430,19 +468,18 @@ def menu_principal():
         
         choix = input("\nVotre choix : ").strip()
         
-        if not player:
+        if game_over or not player:
             if choix == "1":
                 player = creer_personnage()
                 game_map = Map(10, 8)
                 game_map.generate_default_map()
                 spawn_manager = SpawnManager(game_map)
+                start_time = time.time()  # Démarre le chronomètre
+                game_over = False
                 
                 # Spawn initial d'items
                 for _ in range(2):
                     spawn_manager.spawn_item()
-                
-                # Spawn d'un ennemi au milieu de la map
-                spawn_manager.spawn_enemy_middle(player.faction)
             elif choix == "2":
                 print("Au revoir !")
                 break
@@ -455,7 +492,9 @@ def menu_principal():
             elif choix == "2":
                 gerer_inventaire(player, game_map, spawn_manager)
             elif choix == "3":
-                gerer_deplacement(player, game_map, spawn_manager)
+                result = gerer_deplacement(player, game_map, spawn_manager)
+                if result == "dead":
+                    game_over = True
             elif choix == "4":
                 print("Au revoir !")
                 break

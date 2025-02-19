@@ -3,7 +3,8 @@ from random import randint, choice, random
 from .items import ITEMS, Item, ItemType
 from .map import Map, TileType
 from .enemy import Enemy
-from .factions import FactionName, FACTIONS
+from .factions import FactionName, FACTIONS, FactionRelation
+from .player import Player
 
 class SpawnManager:
     def __init__(self, game_map: Map):
@@ -11,38 +12,33 @@ class SpawnManager:
         self.spawned_items: List[Tuple[Item, int, int]] = []  # Liste des items avec leurs positions
         self.spawned_enemies: List[Enemy] = []
         
-        # Calcul du nombre maximum d'items basé sur la taille de la carte
+        # Calcul du nombre maximum d'items et d'ennemis basé sur la taille de la carte
         map_size = self.game_map.width * self.game_map.height
         self.max_items = max(2, map_size // 50)  # 1 item pour 50 cases, minimum 2 items
         self.max_enemies = max(1, map_size // 100)  # 1 ennemi pour 100 cases
         
-        # Nouvelles probabilités de spawn par type d'item
+        # Probabilités de spawn
         self.spawn_weights = {
             ItemType.WEAPON: 0.35,    # 35% de chance pour les armes
             ItemType.ARMOR: 0.30,     # 30% de chance pour les armures
             ItemType.POTION: 0.35     # 35% de chance pour les potions
         }
+        
+        # Changement de la probabilité de spawn pour les ennemis à 100%
+        self.enemy_spawn_chance = 1.0  # 100% de chance qu'un ennemi apparaisse lors d'une mise à jour
 
     def get_random_empty_position(self) -> Optional[Tuple[int, int]]:
         """Trouve une position vide aléatoire sur la carte"""
-        attempts = 0
-        max_attempts = 50
+        empty_positions = []
         
-        while attempts < max_attempts:
-            # Évite les bords de la carte
-            x = randint(1, self.game_map.width - 2)
-            y = randint(1, self.game_map.height - 2)
-            
-            # Vérifie si la position est vide et accessible
-            if self.game_map.grid[y][x] == TileType.EMPTY.value:
-                # Vérifie qu'il y a au moins une case vide adjacente
-                adjacent_positions = [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]
-                if any(self.game_map.grid[ny][nx] == TileType.EMPTY.value 
-                      for nx, ny in adjacent_positions 
-                      if self.game_map.is_valid_position(nx, ny)):
-                    return x, y
-            attempts += 1
-        return None
+        # Parcourt la carte pour trouver toutes les positions vides
+        for y in range(1, self.game_map.height - 1):  # Évite les bords
+            for x in range(1, self.game_map.width - 1):  # Évite les bords
+                if self.game_map.grid[y][x] == TileType.EMPTY.value:
+                    empty_positions.append((x, y))
+        
+        # Retourne une position aléatoire parmi les positions vides
+        return choice(empty_positions) if empty_positions else None
 
     def select_random_item(self) -> Item:
         """Sélectionne un item aléatoire selon les probabilités définies"""
@@ -92,7 +88,22 @@ class SpawnManager:
 
     def update(self):
         """Met à jour le spawn manager (appelé périodiquement)"""
-        # Probabilité de spawn augmente avec le nombre de places libres
+        # Gestion du spawn des items
+        spawn_chance = (self.max_items - len(self.spawned_items)) * 0.2
+        if random() < spawn_chance:
+            self.spawn_item()
+            
+        # Gestion du spawn des ennemis
+        if len(self.spawned_enemies) < self.max_enemies and random() < self.enemy_spawn_chance:
+            # On ne peut pas spawner d'ennemis car il nous manque la faction du joueur
+            return
+
+    def update_with_player_faction(self, player_faction: FactionName):
+        """Met à jour le spawn manager avec la faction du joueur"""
+        if len(self.spawned_enemies) < self.max_enemies:
+            self.spawn_enemy(player_faction)
+        
+        # Gestion du spawn des items
         spawn_chance = (self.max_items - len(self.spawned_items)) * 0.2
         if random() < spawn_chance:
             self.spawn_item()
@@ -105,26 +116,60 @@ class SpawnManager:
         return None
 
     def spawn_enemy(self, player_faction: FactionName) -> bool:
-        """Fait apparaître un ennemi d'une faction hostile"""
-        if len(self.spawned_enemies) >= self.max_enemies:
-            return False
+        """Fait apparaître un ennemi à la position (3,5) avec une faction hostile"""
+        print("\nTentative de spawn d'ennemi...")  # Debug
+        print(f"Faction du joueur : {player_faction.value}")  # Debug
         
-        position = self.get_random_empty_position()
-        if not position:
+        if len(self.spawned_enemies) >= self.max_enemies:
+            print("Nombre maximum d'ennemis atteint")  # Debug
+            return False
+
+        # Position fixe pour l'ennemi
+        x, y = 3, 5
+        
+        # Vérifie si la position est disponible
+        if self.game_map.grid[y][x] != TileType.EMPTY.value:
+            print("La position est déjà occupée")  # Debug
             return False
         
         # Sélectionne une faction hostile au joueur
         hostile_factions = [faction for faction in FactionName 
-                           if FACTIONS[player_faction].get_relation(faction).value == "hostile"]
+                          if FACTIONS[player_faction].get_relation(faction) == FactionRelation.HOSTILE]
+        
+        print(f"Factions hostiles trouvées : {[f.value for f in hostile_factions]}")  # Debug
+        
         if not hostile_factions:
+            print("Aucune faction hostile disponible")  # Debug
             return False
-        
+            
         enemy_faction = choice(hostile_factions)
-        x, y = position
+        print(f"Faction ennemie choisie : {enemy_faction.value}")  # Debug
         
-        enemy = Enemy(f"Ennemi {len(self.spawned_enemies) + 1}", enemy_faction, x, y)
-        self.game_map.add_item(TileType.ENEMY, x, y)
+        # Sélectionne une race aléatoire
+        enemy_race = choice(list(Player.RACES.keys()))
+        
+        # Sélectionne une arme aléatoire
+        weapons = [item for item in ITEMS.values() if item.item_type == ItemType.WEAPON]
+        enemy_weapon = choice(weapons) if weapons else None
+        
+        # Crée l'ennemi
+        enemy = Enemy(
+            name=f"Ennemi {enemy_race.capitalize()}", 
+            faction=enemy_faction,
+            x=x,
+            y=y,
+            race=enemy_race,
+            equipped_weapon=enemy_weapon
+        )
+        
+        # Place l'ennemi sur la carte
+        self.game_map.grid[y][x] = TileType.ENEMY.value
         self.spawned_enemies.append(enemy)
+        
+        print(f"Un {enemy_race.capitalize()} de la faction {enemy_faction.value} est apparu en ({x}, {y})")
+        if enemy_weapon:
+            print(f"Il est équipé d'un(e) {enemy_weapon.name}")
+        
         return True
 
     def spawn_enemy_middle(self, player_faction: FactionName) -> bool:
@@ -132,21 +177,34 @@ class SpawnManager:
         if len(self.spawned_enemies) >= self.max_enemies:
             return False
         
-        # Calcule une position vers le milieu de la map
+        # Calcule une zone centrale de spawn
         middle_y = self.game_map.height // 2
-        # Essaie plusieurs positions x pour trouver une case vide
-        for x in range(2, self.game_map.width - 2):  # Évite les bords
-            if self.game_map.grid[middle_y][x] == TileType.EMPTY.value:
-                # Sélectionne une faction hostile au joueur
-                hostile_factions = [faction for faction in FactionName 
-                                  if FACTIONS[player_faction].get_relation(faction).value == "hostile"]
-                if not hostile_factions:
-                    return False
+        middle_x = self.game_map.width // 2
+        
+        # Essaie plusieurs positions dans la zone centrale
+        for y_offset in range(-2, 3):  # De -2 à +2 autour du milieu
+            y = middle_y + y_offset
+            if y <= 0 or y >= self.game_map.height - 1:
+                continue
                 
-                enemy_faction = choice(hostile_factions)
-                enemy = Enemy(f"Ennemi {len(self.spawned_enemies) + 1}", enemy_faction, x, middle_y)
-                self.game_map.add_item(TileType.ENEMY, x, middle_y)
-                self.spawned_enemies.append(enemy)
-                return True
-                
+            for x_offset in range(-2, 3):  # De -2 à +2 autour du milieu
+                x = middle_x + x_offset
+                if x <= 0 or x >= self.game_map.width - 1:
+                    continue
+                    
+                if self.game_map.grid[y][x] == TileType.EMPTY.value:
+                    # Sélectionne une faction hostile au joueur
+                    hostile_factions = [faction for faction in FactionName 
+                                      if FACTIONS[player_faction].get_relation(faction).value == "hostile"]
+                    if not hostile_factions:
+                        return False
+                    
+                    enemy_faction = choice(hostile_factions)
+                    enemy = Enemy(f"Ennemi {len(self.spawned_enemies) + 1}", enemy_faction, x, y)
+                    self.game_map.add_item(TileType.ENEMY, x, y)
+                    self.spawned_enemies.append(enemy)
+                    print(f"\nUn ennemi est apparu en position ({x}, {y}) !")  # Debug
+                    return True
+        
+        print("\nImpossible de faire apparaître un ennemi au centre de la carte.")  # Debug
         return False 

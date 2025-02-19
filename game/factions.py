@@ -44,22 +44,24 @@ FACTIONS = {
     )
 }
 
-# Configuration des relations initiales entre factions
 def initialize_faction_relations():
+    # Les Veilleurs sont alliés avec les Enfants de la Forêt, hostiles aux Ombres et aux Brumes
     # Les Veilleurs sont alliés avec les Enfants de la Forêt, hostiles aux Ombres
     FACTIONS[FactionName.VEILLEURS].set_relation(FactionName.FORET, FactionRelation.ALLIED)
     FACTIONS[FactionName.VEILLEURS].set_relation(FactionName.OMBRES, FactionRelation.HOSTILE)
     
-    # Le Cercle des Ombres est allié avec le Clan des Brumes
+    # Le Cercle des Ombres est allié avec le Clan des Brumes, hostile aux Veilleurs et aux Enfants de la Forêt
     FACTIONS[FactionName.OMBRES].set_relation(FactionName.BRUMES, FactionRelation.ALLIED)
     FACTIONS[FactionName.OMBRES].set_relation(FactionName.VEILLEURS, FactionRelation.HOSTILE)
+    FACTIONS[FactionName.OMBRES].set_relation(FactionName.FORET, FactionRelation.HOSTILE)  # Ajout
     
-    # Le Clan des Brumes est neutre avec les Enfants de la Forêt
-    FACTIONS[FactionName.BRUMES].set_relation(FactionName.FORET, FactionRelation.NEUTRAL)
+    # Le Clan des Brumes est hostile aux Enfants de la Forêt
+    FACTIONS[FactionName.BRUMES].set_relation(FactionName.FORET, FactionRelation.HOSTILE)  # Modifié
     FACTIONS[FactionName.BRUMES].set_relation(FactionName.OMBRES, FactionRelation.ALLIED)
     
-    # Les Enfants de la Forêt sont alliés avec les Veilleurs
+    # Les Enfants de la Forêt sont alliés avec les Veilleurs, hostiles aux Ombres et aux Brumes
     FACTIONS[FactionName.FORET].set_relation(FactionName.VEILLEURS, FactionRelation.ALLIED)
-    FACTIONS[FactionName.FORET].set_relation(FactionName.BRUMES, FactionRelation.NEUTRAL)
+    FACTIONS[FactionName.FORET].set_relation(FactionName.OMBRES, FactionRelation.HOSTILE)  # Ajout
+    FACTIONS[FactionName.FORET].set_relation(FactionName.BRUMES, FactionRelation.HOSTILE)  # Ajout
 
-initialize_faction_relations() 
+initialize_faction_relations()
