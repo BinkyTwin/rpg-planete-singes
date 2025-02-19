@@ -277,14 +277,14 @@ def gerer_deplacement(player, game_map, spawn_manager):
             for enemy in spawn_manager.spawned_enemies:
                 if enemy.is_adjacent_to(*game_map.player_pos):
                     print("\nUn ennemi est proche !")
-                    result = gerer_combat(player, enemy, game_map)
+                    result = gerer_combat(player, enemy, game_map, spawn_manager)
                     if result == "dead":
                         return "dead"
                     elif result == "fled":  # Fuite
                         # Logique de fuite
                         pass
 
-def gerer_combat(player, enemy, game_map):
+def gerer_combat(player, enemy, game_map, spawn_manager):
     while True:
         print("\n=== Combat ===")
         print(f"Ennemi : {enemy.name} de la faction {enemy.faction.value}")
