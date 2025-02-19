@@ -7,6 +7,7 @@ from game.spawn_manager import SpawnManager
 from game.combat_system import CombatSystem
 from random import randint
 import time
+from game.dialogue_system import DialogueSystem
 
 def afficher_races_disponibles():
     print("\nRaces disponibles :")
@@ -208,7 +209,7 @@ def creer_personnage():
     
     return player
 
-def gerer_deplacement(player, game_map, spawn_manager):
+def gerer_deplacement(player, game_map, spawn_manager, dialogue_system):
     while True:
         print("\n=== Déplacement ===")
         game_map.display()
@@ -222,22 +223,36 @@ def gerer_deplacement(player, game_map, spawn_manager):
         commande = input("\nVotre choix : ").lower().strip()
         
         if commande == "z":
-            success, message, item_pos = game_map.move_player(0, -1)
+            success, message, item_pos, rencontre_pnj = game_map.move_player(0, -1)
         elif commande == "s":
-            success, message, item_pos = game_map.move_player(0, 1)
+            success, message, item_pos, rencontre_pnj = game_map.move_player(0, 1)
         elif commande == "q":
-            success, message, item_pos = game_map.move_player(-1, 0)
+            success, message, item_pos, rencontre_pnj = game_map.move_player(-1, 0)
         elif commande == "d":
-            success, message, item_pos = game_map.move_player(1, 0)
+            success, message, item_pos, rencontre_pnj = game_map.move_player(1, 0)
         elif commande == "r":
             break
         else:
             print("Commande invalide")
             continue
 
-        if message:  # Si il y a un message à afficher
+        if message:
             print(f"\n{message}")
             
+        # Gestion de la rencontre avec le PNJ
+        if rencontre_pnj:
+            message = dialogue_system.start_dialogue()
+            while message:
+                dialogue_system.display_message(message)
+                message = dialogue_system.next_message()
+            
+            # Fait disparaître le PNJ après le dialogue
+            if dialogue_system.is_dialogue_finished():
+                x, y = game_map.npc_pos
+                game_map.remove_item(x, y)  # Enlève le PNJ de la carte
+                game_map.npc_pos = None     # Efface la position du PNJ
+            continue
+
         # Gestion de la découverte d'items
         if item_pos:
             x, y = item_pos
@@ -442,6 +457,7 @@ def menu_principal():
     player = None
     game_map = None
     spawn_manager = None
+    dialogue_system = None  # Initialisation à None
     game_over = False
     start_time = None
     
@@ -474,7 +490,8 @@ def menu_principal():
                 game_map = Map(10, 8)
                 game_map.generate_default_map()
                 spawn_manager = SpawnManager(game_map)
-                start_time = time.time()  # Démarre le chronomètre
+                dialogue_system = DialogueSystem()  # Création du système de dialogue
+                start_time = time.time()
                 game_over = False
                 
                 # Spawn initial d'items
@@ -492,7 +509,7 @@ def menu_principal():
             elif choix == "2":
                 gerer_inventaire(player, game_map, spawn_manager)
             elif choix == "3":
-                result = gerer_deplacement(player, game_map, spawn_manager)
+                result = gerer_deplacement(player, game_map, spawn_manager, dialogue_system)
                 if result == "dead":
                     game_over = True
             elif choix == "4":
@@ -504,3 +521,28 @@ def menu_principal():
 if __name__ == "__main__":
     print("Bienvenue dans le jeu des Singes !")
     menu_principal()
+
+# Initialisation des quêtes principales
+main_quest = Quest(
+    "À la recherche des vôtres",
+    "Retrouvez votre famille kidnappée par les Masqués",
+    {
+        "Parler au PNJ": False,
+        "Trouver l'arsenal": False,
+        "Récupérer une arme": False,
+        "Atteindre le camp des Masqués": False
+    }
+)
+
+# Dans la boucle principale du jeu
+def handle_dialogue(keys_pressed, dialogue_system, quest_system):
+    if dialogue_system.is_dialogue_active:
+        current_message = dialogue_system.get_current_message()
+        # Afficher le message actuel (à implémenter selon votre système d'affichage)
+        
+        # Si une touche est pressée, passer au message suivant
+        if any(keys_pressed):
+            next_message = dialogue_system.next_message()
+            if next_message is None:  # Dialogue terminé
+                quest_system.complete_objective("À la recherche des vôtres", "Parler au PNJ")
+                # Activer la recherche de l'arsenal

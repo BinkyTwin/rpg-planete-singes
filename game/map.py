@@ -1,5 +1,6 @@
 from typing import List, Optional, Tuple
 from enum import Enum
+from random import choice
 
 class TileType(Enum):
     EMPTY = "."      # Case vide
@@ -9,13 +10,16 @@ class TileType(Enum):
     ENEMY = "E"      # Ennemi
     TREE = "T"       # Arbre
     WATER = "~"      # Eau
+    NPC = "P"        # PNJ changé en P
 
 class Map:
     def __init__(self, width: int, height: int):
         self.width = width
         self.height = height
         self.grid: List[List[str]] = [[TileType.EMPTY.value for _ in range(width)] for _ in range(height)]
-        self.player_pos = (0, 0)  # Position initiale du joueur
+        self.player_pos = (1, 1)  # Position initiale du joueur
+        # Le PNJ sera placé lors de la génération de la carte
+        self.npc_pos = None
 
     def is_valid_position(self, x: int, y: int) -> bool:
         """Vérifie si une position est valide sur la carte"""
@@ -35,21 +39,24 @@ class Map:
         self.grid[y][x] = TileType.EMPTY.value
         return True
 
-    def move_player(self, dx: int, dy: int) -> tuple[bool, str, Optional[Tuple[int, int]]]:
+    def move_player(self, dx: int, dy: int) -> tuple[bool, str, Optional[Tuple[int, int]], bool]:
         """
         Déplace le joueur selon les deltas donnés
-        Retourne (succès, message, position_item)
-        position_item est renvoyé si le joueur arrive sur un item
+        Retourne (succès, message, position_item, rencontre_pnj)
         """
         new_x = self.player_pos[0] + dx
         new_y = self.player_pos[1] + dy
 
         if not self.is_valid_position(new_x, new_y):
-            return False, "Halte soldat ! Vous ne pouvez pas quitter la zone sécurisée.", None
+            return False, "Halte soldat ! Vous ne pouvez pas quitter la zone sécurisée.", None, False
         
+        # Vérifie si la nouvelle position est le PNJ
+        if (new_x, new_y) == self.npc_pos:
+            return True, "", None, True
+
         # Vérifie si la nouvelle position n'est pas un mur
         if self.grid[new_y][new_x] == TileType.WALL.value:
-            return False, "Un mur vous bloque le passage, impossible d'aller par là.", None
+            return False, "Un mur vous bloque le passage, impossible d'aller par là.", None, False
 
         # Vérifie si la nouvelle position contient un item
         found_item = None
@@ -62,7 +69,7 @@ class Map:
         # Met à jour la nouvelle position
         self.player_pos = (new_x, new_y)
         self.grid[new_y][new_x] = TileType.PLAYER.value
-        return True, "", found_item
+        return True, "", found_item, False
 
     def display(self):
         """Affiche la carte avec sa légende"""
@@ -74,6 +81,7 @@ class Map:
         print(f"{TileType.WATER.value} - Eau")
         print(f"{TileType.ENEMY.value} - Ennemi")
         print(f"{TileType.ITEM.value} - Objet")
+        print(f"{TileType.NPC.value} - PNJ")
         print(f"{TileType.EMPTY.value} - Case vide")
         
         print("\nCarte :")
@@ -81,6 +89,22 @@ class Map:
         for row in self.grid:
             print("|" + " ".join(row) + "|")
         print("=" * (self.width * 2 + 1))
+
+    def get_valid_npc_positions(self, max_distance: int = 5) -> List[Tuple[int, int]]:
+        """Trouve toutes les positions valides pour le PNJ à une distance maximale donnée"""
+        valid_positions = []
+        player_x, player_y = self.player_pos
+
+        for y in range(1, self.height - 1):
+            for x in range(1, self.width - 1):
+                # Calcule la distance de Manhattan
+                distance = abs(x - player_x) + abs(y - player_y)
+                # Vérifie si la position est vide et à la bonne distance
+                if (self.grid[y][x] == TileType.EMPTY.value and 
+                    0 < distance <= max_distance):
+                    valid_positions.append((x, y))
+
+        return valid_positions
 
     def generate_default_map(self):
         """Génère une carte par défaut avec quelques éléments"""
@@ -100,4 +124,11 @@ class Map:
 
         # Place le joueur
         self.add_item(TileType.PLAYER, 1, 1)
-        self.player_pos = (1, 1) 
+        self.player_pos = (1, 1)
+
+        # Place le PNJ à une distance maximale de 5 cases
+        valid_positions = self.get_valid_npc_positions(5)
+        if valid_positions:
+            x, y = choice(valid_positions)  # Utilise random.choice
+            self.npc_pos = (x, y)
+            self.add_item(TileType.NPC, x, y)
