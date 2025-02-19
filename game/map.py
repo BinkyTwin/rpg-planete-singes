@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Tuple, Optional
 from enum import Enum
 
 class TileType(Enum):
@@ -9,24 +9,26 @@ class TileType(Enum):
     ENEMY = "E"      # Ennemi
     TREE = "T"       # Arbre
     WATER = "~"      # Eau
+    NPC = "P"        # PNJ
 
 class Map:
     def __init__(self, width: int, height: int):
         self.width = width
         self.height = height
         self.grid: List[List[str]] = [[TileType.EMPTY.value for _ in range(width)] for _ in range(height)]
-        self.player_pos = (0, 0)  # Position initiale du joueur
+        self.player_x = 1
+        self.player_y = 1
 
     def is_valid_position(self, x: int, y: int) -> bool:
         """Vérifie si une position est valide sur la carte"""
         return 0 <= x < self.width and 0 <= y < self.height
 
-    def add_item(self, tile_type: TileType, x: int, y: int) -> bool:
-        """Ajoute un élément sur la carte à la position donnée"""
-        if not self.is_valid_position(x, y):
-            return False
-        self.grid[y][x] = tile_type.value
-        return True
+    def add_item(self, item_type: TileType, x: int, y: int) -> bool:
+        """Ajoute un élément sur la carte"""
+        if self.is_valid_position(x, y):
+            self.grid[y][x] = item_type.value
+            return True
+        return False
 
     def remove_item(self, x: int, y: int) -> bool:
         """Retire un élément de la carte à la position donnée"""
@@ -35,25 +37,29 @@ class Map:
         self.grid[y][x] = TileType.EMPTY.value
         return True
 
-    def move_player(self, dx: int, dy: int) -> tuple[bool, str]:
-        """Déplace le joueur selon les deltas donnés et retourne un message"""
-        new_x = self.player_pos[0] + dx
-        new_y = self.player_pos[1] + dy
-
+    def move_player(self, dx: int, dy: int) -> Tuple[bool, Optional[str]]:
+        """Déplace le joueur sur la carte"""
+        new_x = self.player_x + dx
+        new_y = self.player_y + dy
+        
         if not self.is_valid_position(new_x, new_y):
-            return False, "Halte soldat ! Vous ne pouvez pas quitter la zone sécurisée."
+            return False, "Vous ne pouvez pas sortir de la carte !"
         
-        # Vérifie si la nouvelle position n'est pas un mur
+        # Vérifie si la case est un PNJ
+        if self.grid[new_y][new_x] == TileType.NPC.value:
+            return True, "NPC_ENCOUNTER"
+        
+        # Vérifie si la case est accessible
         if self.grid[new_y][new_x] == TileType.WALL.value:
-            return False, "Un mur vous bloque le passage, impossible d'aller par là."
-
-        # Efface l'ancienne position du joueur
-        self.grid[self.player_pos[1]][self.player_pos[0]] = TileType.EMPTY.value
+            return False, "Un mur vous bloque le passage !"
         
-        # Met à jour la nouvelle position
-        self.player_pos = (new_x, new_y)
+        # Met à jour la position du joueur
+        self.grid[self.player_y][self.player_x] = TileType.EMPTY.value
         self.grid[new_y][new_x] = TileType.PLAYER.value
-        return True, ""
+        self.player_x = new_x
+        self.player_y = new_y
+        
+        return True, None
 
     def display(self):
         """Affiche la carte avec sa légende"""
@@ -66,6 +72,7 @@ class Map:
         print(f"{TileType.ENEMY.value} - Ennemi")
         print(f"{TileType.ITEM.value} - Objet")
         print(f"{TileType.EMPTY.value} - Case vide")
+        print(f"{TileType.NPC.value} - PNJ")
         
         print("\nCarte :")
         print("=" * (self.width * 2 + 1))
@@ -91,4 +98,5 @@ class Map:
 
         # Place le joueur
         self.add_item(TileType.PLAYER, 1, 1)
-        self.player_pos = (1, 1) 
+        self.player_x = 1
+        self.player_y = 1

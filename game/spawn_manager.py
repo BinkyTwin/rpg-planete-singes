@@ -99,4 +99,11 @@ class SpawnManager:
         for item, item_x, item_y in self.spawned_items:
             if item_x == x and item_y == y:
                 return item
-        return None 
+        return None
+
+    def can_spawn_at(self, x: int, y: int) -> bool:
+        """Vérifie si un item peut être spawné à cette position"""
+        return (0 <= x < self.game_map.width and 
+                0 <= y < self.game_map.height and 
+                self.game_map.grid[y][x] == "." and  # Case vide
+                self.game_map.grid[y][x] != "P")     # Pas sur un PNJ 

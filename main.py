@@ -4,6 +4,8 @@ from game.inventory import Inventory
 from game.items import ITEMS
 from game.map import Map, TileType
 from game.spawn_manager import SpawnManager
+from game.quest_manager import Quest, QuestManager, DialogueManager
+from game.npc_manager import NPCManager
 
 def afficher_races_disponibles():
     print("\nRaces disponibles :")
@@ -98,14 +100,12 @@ def gerer_inventaire(player):
 def creer_personnage():
     print("=== Création de votre personnage ===\n")
     
-    # Demande du nom
     while True:
         name = input("Entrez le nom de votre personnage : ").strip()
         if name:
             break
         print("Le nom ne peut pas être vide.")
 
-    # Choix de la race
     while True:
         races_list = afficher_races_disponibles()
         try:
@@ -118,7 +118,6 @@ def creer_personnage():
         except ValueError:
             print("Veuillez entrer un numéro valide")
 
-    # Choix de la faction
     while True:
         factions_list = afficher_factions_disponibles()
         try:
@@ -131,16 +130,26 @@ def creer_personnage():
         except ValueError:
             print("Veuillez entrer un numéro valide")
 
-    # Création du personnage avec un inventaire
     player = Player(name, 0, 0, race, faction_match)
-    player.inventory = Inventory()  # Ajout de l'inventaire
+    player.inventory = Inventory()
     
     print("\n=== Personnage créé avec succès ! ===")
     player.print_player()
     
     return player
 
-def gerer_deplacement(player, game_map):
+def handle_npc_dialogue(npc):
+    """Gère l'affichage des dialogues d'un PNJ"""
+    print(f"\nDiscussion avec {npc.name}")
+    while True:
+        message = npc.get_next_dialogue()
+        if message is None:
+            break
+        print(f"\n{message}")
+        input("Appuyez sur Entrée pour continuer...")
+    npc.reset_dialogue()
+
+def gerer_deplacement(player, game_map, npc_manager):
     while True:
         print("\n=== Déplacement ===")
         game_map.display()
@@ -153,27 +162,77 @@ def gerer_deplacement(player, game_map):
         
         commande = input("\nVotre choix : ").lower().strip()
         
+        dx, dy = 0, 0
         if commande == "z":
-            success, message = game_map.move_player(0, -1)
+            dx, dy = 0, -1
         elif commande == "s":
-            success, message = game_map.move_player(0, 1)
+            dx, dy = 0, 1
         elif commande == "q":
-            success, message = game_map.move_player(-1, 0)
+            dx, dy = -1, 0
         elif commande == "d":
-            success, message = game_map.move_player(1, 0)
+            dx, dy = 1, 0
         elif commande == "r":
             break
         else:
             print("Commande invalide")
             continue
 
-        if message:  # Si il y a un message à afficher
+        success, message = game_map.move_player(dx, dy)
+        
+        if message == "NPC_ENCOUNTER":
+            npc = npc_manager.get_npc_at_position(
+                game_map.player_x + dx,
+                game_map.player_y + dy
+            )
+            if npc:
+                handle_npc_dialogue(npc)
+        elif message:
             print(f"\n{message}")
+
+def init_quests(quest_manager, dialogue_manager):
+    """Initialise les quêtes et dialogues du jeu"""
+    main_quest = Quest(
+        "Atteindre le camp des Masqués",
+        "Retrouvez votre famille capturée par les Masqués",
+        [
+            "Trouver le PNJ dans le coin opposé",
+            "Discuter avec le PNJ",
+            "Récupérer une arme",
+            "Combattre les ennemis",
+            "Rejoindre le camp des Masqués"
+        ]
+    )
+    quest_manager.add_quest(main_quest)
+    main_quest.start_quest()
+    
+    dialogue_manager.add_dialogue("guide_pnj", [
+        "Ah, te voilà enfin ! Je me demandais si tu arriverais...",
+        "J'ai un message important pour toi...",
+        "Les Masqués ont enlevé ta famille...",
+        "Tu vas devoir récupérer des armes...",
+        "Bonne chance dans ta quête, voyageur."
+    ])
+
+def afficher_quetes_actives(quest_manager):
+    """Affiche les quêtes actives"""
+    print("\n=== Quêtes actives ===")
+    active_quests = quest_manager.list_active_quests()
+    if not active_quests:
+        print("Aucune quête active")
+        return
+    
+    for quest in active_quests:
+        print(f"\n{quest.title}")
+        print(f"Description : {quest.description}")
+        print(f"Objectif actuel : {quest.get_current_objective()}")
 
 def menu_principal():
     player = None
     game_map = None
     spawn_manager = None
+    quest_manager = QuestManager()
+    dialogue_manager = DialogueManager()
+    npc_manager = None
     
     while True:
         print("\n=== Menu Principal ===")
@@ -181,7 +240,8 @@ def menu_principal():
         if player:
             print("2. Gérer l'inventaire")
             print("3. Se déplacer")
-            print("4. Quitter")
+            print("4. Voir les quêtes actives")
+            print("5. Quitter")
         else:
             print("2. Quitter")
         
@@ -191,18 +251,29 @@ def menu_principal():
             player = creer_personnage()
             game_map = Map(10, 8)
             game_map.generate_default_map()
-            spawn_manager = SpawnManager(game_map)
+            
+            # Initialisation du NPC Manager et création du guide
+            npc_manager = NPCManager(game_map)
+            guide_npc = npc_manager.create_guide_npc(game_map.player_x, game_map.player_y)
+            npc_manager.add_npc(guide_npc)
+            
             # Spawn initial d'items
-            for _ in range(2):  # Spawn initial de 2 items
+            spawn_manager = SpawnManager(game_map)
+            for _ in range(2):
                 spawn_manager.spawn_item()
+            # Initialisation des quêtes
+            init_quests(quest_manager, dialogue_manager)
+            
         elif choix == "2" and player:
             gerer_inventaire(player)
         elif choix == "2" and not player:
             print("Au revoir !")
             break
         elif choix == "3" and player:
-            gerer_deplacement(player, game_map)
+            gerer_deplacement(player, game_map, npc_manager)
         elif choix == "4" and player:
+            afficher_quetes_actives(quest_manager)
+        elif choix == "5" and player:
             print("Au revoir !")
             break
         else:
