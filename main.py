@@ -8,6 +8,12 @@ from game.combat_system import CombatSystem
 from random import randint
 import time
 from game.dialogue_system import DialogueSystem
+import pygame
+import sys
+from game.game_state import GameState
+from game.scenes.menu_scene import MenuScene
+from game.scenes.game_scene import GameScene
+from game.scenes.character_creation_scene import CharacterCreationScene
 
 def afficher_races_disponibles():
     print("\nRaces disponibles :")
@@ -453,74 +459,117 @@ def gerer_combat(player, enemy, game_map, spawn_manager):
         else:
             print("Choix invalide")
 
-def menu_principal():
-    player = None
-    game_map = None
-    spawn_manager = None
-    dialogue_system = None  # Initialisation à None
-    game_over = False
-    start_time = None
-    
-    while True:
-        print("\n=== Menu Principal ===")
-        if game_over:
-            elapsed_time = time.time() - start_time
-            minutes = int(elapsed_time // 60)
-            seconds = int(elapsed_time % 60)
-            print(f"\n=== GAME OVER ===")
-            print(f"Temps de survie : {minutes} minutes et {seconds} secondes")
-            print("\nStatistiques finales du personnage :")
-            player.print_player()
-            print("\n1. Créer un nouveau personnage")
-            print("2. Quitter")
-        elif not player:
-            print("1. Créer un nouveau personnage")
-            print("2. Quitter")
-        else:
-            print("1. Afficher les statistiques")
-            print("2. Gérer l'inventaire")
-            print("3. Se déplacer")
-            print("4. Quitter")
+def charger_carte_png(chemin_fichier):
+    """Charge et affiche la carte PNG avec Pygame"""
+    try:
+        # Initialisation de Pygame
+        pygame.init()
         
-        choix = input("\nVotre choix : ").strip()
+        # Chargement de l'image PNG
+        map_image = pygame.image.load(chemin_fichier)
         
-        if game_over or not player:
-            if choix == "1":
-                player = creer_personnage()
-                game_map = Map(10, 8)
-                game_map.generate_default_map()
-                spawn_manager = SpawnManager(game_map)
-                dialogue_system = DialogueSystem()  # Création du système de dialogue
-                start_time = time.time()
-                game_over = False
-                
-                # Spawn initial d'items
-                for _ in range(2):
-                    spawn_manager.spawn_item()
-            elif choix == "2":
-                print("Au revoir !")
-                break
-            else:
-                print("Choix invalide. Veuillez réessayer.")
-        else:
-            if choix == "1":
-                print("\n=== Statistiques du personnage ===")
-                player.print_player()
-            elif choix == "2":
-                gerer_inventaire(player, game_map, spawn_manager)
-            elif choix == "3":
-                result = gerer_deplacement(player, game_map, spawn_manager, dialogue_system)
-                if result == "dead":
-                    game_over = True
-            elif choix == "4":
-                print("Au revoir !")
-                break
-            else:
-                print("Choix invalide. Veuillez réessayer.")
+        # Obtention des dimensions de l'image
+        MAPWIDTH = map_image.get_width()
+        MAPHEIGHT = map_image.get_height()
+        
+        # Création de la fenêtre
+        screen = pygame.display.set_mode((MAPWIDTH, MAPHEIGHT))
+        pygame.display.set_caption("La Planète des Singes - RPG")
+        
+        # Affichage de l'image
+        screen.blit(map_image, (0, 0))
+        pygame.display.flip()
+        
+        # Création de la carte pour le jeu (12x12 par défaut)
+        game_map = Map(12, 12)
+        game_map.generate_default_map()
+        
+        # Boucle d'attente pour voir la carte (5 secondes)
+        start_time = pygame.time.get_ticks()
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                elif event.type == pygame.KEYDOWN:
+                    running = False  # Permet de passer l'affichage avec une touche
+            
+            # Quitte après 5 secondes
+            if pygame.time.get_ticks() - start_time > 5000:
+                running = False
+        
+        pygame.quit()
+        return game_map
+        
+    except Exception as e:
+        print(f"Erreur lors du chargement de la carte PNG : {e}")
+        pygame.quit()
+        return None
+
+class Game:
+    def __init__(self):
+        pygame.init()
+        
+        # Configuration de base
+        self.WINDOW_WIDTH = 800
+        self.WINDOW_HEIGHT = 600
+        self.FPS = 60
+        
+        # Création de la fenêtre
+        self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
+        pygame.display.set_caption("La Planète des Singes - RPG")
+        
+        # Horloge pour contrôler le FPS
+        self.clock = pygame.time.Clock()
+        
+        # État du jeu
+        self.game_state = GameState()
+        
+        # Scènes du jeu
+        self.scenes = {
+            'menu': MenuScene(self.screen, self.game_state),
+            'game': GameScene(self.screen, self.game_state),
+            'character_creation': CharacterCreationScene(self.screen, self.game_state)
+        }
+        self.current_scene = 'menu'
+
+    def handle_events(self):
+        """Gère les événements globaux"""
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            
+            # Délègue la gestion des événements à la scène courante
+            new_scene = self.scenes[self.current_scene].handle_event(event)
+            if new_scene and new_scene in self.scenes:
+                self.current_scene = new_scene
+        
+        return True
+
+    def update(self):
+        """Met à jour l'état du jeu"""
+        self.scenes[self.current_scene].update()
+
+    def render(self):
+        """Dessine le jeu"""
+        self.scenes[self.current_scene].render()
+        pygame.display.flip()
+
+    def run(self):
+        """Boucle principale du jeu"""
+        running = True
+        while running:
+            running = self.handle_events()
+            self.update()
+            self.render()
+            self.clock.tick(self.FPS)
+
+        pygame.quit()
+        sys.exit()
 
 if __name__ == "__main__":
-    print("Bienvenue dans le jeu des Singes !")
-    menu_principal()
+    game = Game()
+    game.run()
 
 # Initialisation des quêtes principales
 main_quest = Quest(

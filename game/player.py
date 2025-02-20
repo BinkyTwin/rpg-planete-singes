@@ -18,7 +18,7 @@ class Player:
             'furtivite': 4,
             'diplomatie': 5
         },
-        'orang_outan': {
+        'orang outan': {
             'agilite': 6,
             'force': 7,
             'intelligence': 9,
@@ -32,7 +32,7 @@ class Player:
             'furtivite': 9,
             'diplomatie': 9
         },
-        'singe_hurleur': {
+        'singe hurleur': {
             'agilite': 8,
             'force': 6,
             'intelligence': 6,

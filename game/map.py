@@ -18,7 +18,6 @@ class Map:
         self.height = height
         self.grid: List[List[str]] = [[TileType.EMPTY.value for _ in range(width)] for _ in range(height)]
         self.player_pos = (1, 1)  # Position initiale du joueur
-        # Le PNJ sera placé lors de la génération de la carte
         self.npc_pos = None
 
     def is_valid_position(self, x: int, y: int) -> bool:
@@ -116,19 +115,21 @@ class Map:
             self.add_item(TileType.WALL, 0, y)
             self.add_item(TileType.WALL, self.width-1, y)
 
-        # Ajoute quelques arbres et de l'eau
+        # Ajoute quelques arbres et de l'eau (ajusté pour la nouvelle taille)
         self.add_item(TileType.TREE, 3, 3)
         self.add_item(TileType.TREE, 4, 3)
-        self.add_item(TileType.WATER, 6, 4)
-        self.add_item(TileType.WATER, 6, 5)
+        self.add_item(TileType.TREE, 5, 3)
+        self.add_item(TileType.WATER, 8, 6)
+        self.add_item(TileType.WATER, 8, 7)
+        self.add_item(TileType.WATER, 8, 8)
 
         # Place le joueur
         self.add_item(TileType.PLAYER, 1, 1)
         self.player_pos = (1, 1)
 
-        # Place le PNJ à une distance maximale de 5 cases
-        valid_positions = self.get_valid_npc_positions(5)
+        # Place le PNJ à une distance maximale de 7 cases (augmenté pour la carte plus grande)
+        valid_positions = self.get_valid_npc_positions(7)
         if valid_positions:
-            x, y = choice(valid_positions)  # Utilise random.choice
+            x, y = choice(valid_positions)
             self.npc_pos = (x, y)
             self.add_item(TileType.NPC, x, y)

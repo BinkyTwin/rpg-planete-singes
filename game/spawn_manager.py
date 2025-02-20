@@ -12,10 +12,10 @@ class SpawnManager:
         self.spawned_items: List[Tuple[Item, int, int]] = []  # Liste des items avec leurs positions
         self.spawned_enemies: List[Enemy] = []
         
-        # Calcul du nombre maximum d'items et d'ennemis basé sur la taille de la carte
+        # Ajustement des maximums pour la nouvelle taille de carte
         map_size = self.game_map.width * self.game_map.height
-        self.max_items = max(2, map_size // 50)  # 1 item pour 50 cases, minimum 2 items
-        self.max_enemies = max(1, map_size // 100)  # 1 ennemi pour 100 cases
+        self.max_items = max(3, map_size // 48)  # Augmenté pour la carte plus grande
+        self.max_enemies = max(2, map_size // 72)  # Augmenté pour la carte plus grande
         
         # Probabilités de spawn
         self.spawn_weights = {
