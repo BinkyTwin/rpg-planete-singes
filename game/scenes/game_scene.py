@@ -1,11 +1,15 @@
 import pygame
+import os
 from .base_scene import BaseScene
 from game.tiled_map import TiledMap
 
 class GameScene(BaseScene):
     def __init__(self, screen, game_state):
         super().__init__(screen, game_state)
-        self.tiled_map = TiledMap("assets/mapv2.tmx")
+        # Obtenir le chemin de base du projet
+        self.base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        map_path = os.path.join(self.base_path, "assets", "mapv2.tmx")
+        self.tiled_map = TiledMap(map_path)
         self.player_image = pygame.Surface((32, 32))  # Placeholder pour l'image du joueur
         self.player_image.fill((255, 0, 0))  # Rectangle rouge pour le joueur
         self.collision_rects = self.tiled_map.get_collider_rects()
