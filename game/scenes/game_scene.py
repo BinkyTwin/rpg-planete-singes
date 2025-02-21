@@ -13,9 +13,13 @@ class GameScene(BaseScene):
         self.base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         map_path = os.path.join(self.base_path, "assets", "mapv2.tmx")
         self.tiled_map = TiledMap(map_path)
-        self.player_image = pygame.Surface((32, 32))  # Placeholder pour l'image du joueur
-        self.player_image.fill((255, 0, 0))  # Rectangle rouge pour le joueur
         self.collision_rects = self.tiled_map.get_collider_rects()
+        
+        # Variables pour l'animation
+        self.animation_frame = 0
+        self.animation_timer = 0
+        self.animation_speed = 100  # Millisecondes entre chaque frame
+        self.last_direction = "down"  # Direction par défaut
         
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
@@ -28,10 +32,18 @@ class GameScene(BaseScene):
     def handle_player_movement(self, key):
         if self.game_state.player:
             dx, dy = 0, 0
-            if key == pygame.K_z: dy = -1
-            elif key == pygame.K_s: dy = 1
-            elif key == pygame.K_q: dx = -1
-            elif key == pygame.K_d: dx = 1
+            if key == pygame.K_z:
+                dy = -1
+                self.last_direction = "up"
+            elif key == pygame.K_s:
+                dy = 1
+                self.last_direction = "down"
+            elif key == pygame.K_q:
+                dx = -1
+                self.last_direction = "left"
+            elif key == pygame.K_d:
+                dx = 1
+                self.last_direction = "right"
             
             # Calcul de la nouvelle position
             new_x = self.game_state.player.x + dx
@@ -56,19 +68,43 @@ class GameScene(BaseScene):
             if can_move:
                 self.game_state.player.x = new_x
                 self.game_state.player.y = new_y
+                # Mettre à jour l'animation
+                self.animation_timer = pygame.time.get_ticks()
+                self.animation_frame = (self.animation_frame + 1) % 4
+                
+    def update(self):
+        # Mettre à jour l'animation si le joueur se déplace
+        current_time = pygame.time.get_ticks()
+        if current_time - self.animation_timer >= self.animation_speed:
+            self.animation_timer = current_time
+            self.animation_frame = (self.animation_frame + 1) % 4
                 
     def render(self):
         # Affichage de la carte
         map_surface = self.tiled_map.make_map()
         self.screen.blit(map_surface, (0, 0))
         
-        # Affichage du joueur
+        # Affichage du joueur avec son sprite animé
         if self.game_state.player:
+            # Obtenir le sprite actuel
+            current_sprite = self.game_state.player.sprites[self.last_direction][self.animation_frame]
+            
+            # Calculer la position du joueur en pixels
+            # Centre le sprite sur la tile
+            player_x = self.game_state.player.x * self.tiled_map.tmx_data.tilewidth
+            player_y = self.game_state.player.y * self.tiled_map.tmx_data.tileheight
+            
+            # Ajuster la position pour centrer le sprite plus grand sur la tile
+            sprite_offset_x = (self.game_state.player.sprite_size - self.tiled_map.tmx_data.tilewidth) // 2
+            sprite_offset_y = (self.game_state.player.sprite_size - self.tiled_map.tmx_data.tileheight) // 2
+            
             player_pos = (
-                self.game_state.player.x * self.tiled_map.tmx_data.tilewidth,
-                self.game_state.player.y * self.tiled_map.tmx_data.tileheight
+                player_x - sprite_offset_x,
+                player_y - sprite_offset_y
             )
-            self.screen.blit(self.player_image, player_pos)
+            
+            # Afficher le sprite
+            self.screen.blit(current_sprite, player_pos)
             
         # DEBUG: Affichage des rectangles de collision
         # for rect in self.collision_rects:
