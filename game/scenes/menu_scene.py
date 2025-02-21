@@ -1,26 +1,23 @@
 import pygame
 import sys
+import os
 from .base_scene import BaseScene
 
 class MenuScene(BaseScene):
     def __init__(self, screen, game_state):
         super().__init__(screen, game_state)
-        # Utilisation d'une police plus élégante
-        try:
-            self.font = pygame.font.Font("assets/fonts/Roboto-Bold.ttf", 36)
-            self.title_font = pygame.font.Font("assets/fonts/Roboto-Bold.ttf", 48)
-        except:
-            # Fallback sur une police système si le fichier n'est pas trouvé
-            self.font = pygame.font.SysFont("arial", 36)
-            self.title_font = pygame.font.SysFont("arial", 48)
+        # Utilisation d'une police système
+        self.font = pygame.font.SysFont("arial", 36)
+        self.title_font = pygame.font.SysFont("arial", 48)
 
         self.menu_items = [
             "Nouvelle Partie",
             "Quitter"
         ]
         self.selected_item = 0
-        # Chargement et redimensionnement du fond d'écran
-        self.background = pygame.image.load("assets/wallpaper.png")
+        # Chargement et redimensionnement du fond d'écran avec chemin relatif
+        wallpaper_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "assets", "wallpaper.png")
+        self.background = pygame.image.load(wallpaper_path)
         self.background = pygame.transform.scale(self.background, (screen.get_width(), screen.get_height()))
         
         # Animation des boutons

@@ -1,20 +1,21 @@
 import pygame
+import sys
+import os
 from .base_scene import BaseScene
-from game.player import Player
-from game.factions import FactionName, FACTIONS
+from ..player import Player
+from ..factions import FactionName, FACTIONS
 
 class CharacterCreationScene(BaseScene):
     def __init__(self, screen, game_state):
         super().__init__(screen, game_state)
-        try:
-            self.font = pygame.font.Font("assets/fonts/Roboto-Bold.ttf", 36)
-            self.title_font = pygame.font.Font("assets/fonts/Roboto-Bold.ttf", 48)
-            self.small_font = pygame.font.Font("assets/fonts/Roboto-Bold.ttf", 24)
-        except:
-            self.font = pygame.font.SysFont("arial", 36)
-            self.title_font = pygame.font.SysFont("arial", 48)
-            self.small_font = pygame.font.SysFont("arial", 24)
-
+        # Utilisation d'une police système
+        self.font = pygame.font.SysFont("arial", 36)
+        self.title_font = pygame.font.SysFont("arial", 48)
+        self.small_font = pygame.font.SysFont("arial", 24)
+        
+        # Obtenir le chemin de base du projet
+        self.base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        
         # Configuration de base
         self.name = ""
         self.selected_race = 0
@@ -23,7 +24,8 @@ class CharacterCreationScene(BaseScene):
         self.is_name_field_active = False
         
         # Chargement du fond d'écran
-        self.background = pygame.image.load("assets/wallpaper.png")
+        wallpaper_path = os.path.join(self.base_path, "assets", "wallpaper.png")
+        self.background = pygame.image.load(wallpaper_path)
         self.background = pygame.transform.scale(self.background, (screen.get_width(), screen.get_height()))
         
         # Configuration des listes et rectangles
@@ -83,7 +85,8 @@ class CharacterCreationScene(BaseScene):
         self.race_illustrations = {}
         for race in self.races:
             try:
-                image = pygame.image.load(f"assets/{race}.png")
+                race_image_path = os.path.join(self.base_path, "assets", f"{race}.png")
+                image = pygame.image.load(race_image_path)
                 scaled_image = pygame.transform.scale(image, (self.illustration_rect.width, self.illustration_rect.height))
                 self.race_illustrations[race] = scaled_image
             except pygame.error as e:
@@ -95,7 +98,8 @@ class CharacterCreationScene(BaseScene):
         for faction in self.factions:
             try:
                 # Utilise le nom complet de la faction pour le fichier
-                image = pygame.image.load(f"assets/{faction.value}.png")
+                faction_image_path = os.path.join(self.base_path, "assets", f"{faction.value}.png")
+                image = pygame.image.load(faction_image_path)
                 scaled_image = pygame.transform.scale(image, (self.illustration_rect.width, self.illustration_rect.height))
                 self.faction_illustrations[faction] = scaled_image
             except pygame.error as e:
