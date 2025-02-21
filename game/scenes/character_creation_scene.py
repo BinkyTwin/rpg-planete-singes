@@ -1,25 +1,21 @@
 import pygame
+import sys
 import os
 from .base_scene import BaseScene
-from game.player import Player
-from game.factions import FactionName, FACTIONS
+from ..player import Player
+from ..factions import FactionName, FACTIONS
 
 class CharacterCreationScene(BaseScene):
     def __init__(self, screen, game_state):
         super().__init__(screen, game_state)
+        # Utilisation d'une police système
+        self.font = pygame.font.SysFont("arial", 36)
+        self.title_font = pygame.font.SysFont("arial", 48)
+        self.small_font = pygame.font.SysFont("arial", 24)
+        
         # Obtenir le chemin de base du projet
         self.base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         
-        try:
-            font_path = os.path.join(self.base_path, "assets", "fonts", "Roboto-Bold.ttf")
-            self.font = pygame.font.Font(font_path, 36)
-            self.title_font = pygame.font.Font(font_path, 48)
-            self.small_font = pygame.font.Font(font_path, 24)
-        except:
-            self.font = pygame.font.SysFont("arial", 36)
-            self.title_font = pygame.font.SysFont("arial", 48)
-            self.small_font = pygame.font.SysFont("arial", 24)
-
         # Configuration de base
         self.name = ""
         self.selected_race = 0

@@ -6,6 +6,9 @@ from game.tiled_map import TiledMap
 class GameScene(BaseScene):
     def __init__(self, screen, game_state):
         super().__init__(screen, game_state)
+        # Utilisation d'une police système
+        self.font = pygame.font.SysFont("arial", 36)
+        self.title_font = pygame.font.SysFont("arial", 48)
         # Obtenir le chemin de base du projet
         self.base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         map_path = os.path.join(self.base_path, "assets", "mapv2.tmx")
