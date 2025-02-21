@@ -88,11 +88,31 @@ class Game:
             traceback.print_exc()
             return False
 
+    def handle_input(self):
+        keys = pygame.key.get_pressed()
+        move_vector = [0, 0]
+        
+        # ZQSD
+        if keys[pygame.K_z] or keys[pygame.K_UP]:
+            move_vector[1] -= 1
+        if keys[pygame.K_s] or keys[pygame.K_DOWN]:
+            move_vector[1] += 1
+        if keys[pygame.K_q] or keys[pygame.K_LEFT]:
+            move_vector[0] -= 1
+        if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
+            move_vector[0] += 1
+            
+        return move_vector
+
     def update(self):
         """Met à jour l'état du jeu"""
         try:
             # Met à jour la scène courante
             self.scenes[self.current_scene].update()
+            
+            if hasattr(self.scenes[self.current_scene], 'player'):
+                move_vector = self.handle_input()
+                self.scenes[self.current_scene].player.move(move_vector, 1/60)
         except Exception as e:
             print(f"[ERREUR] Une erreur est survenue lors de la mise à jour : {e}", flush=True)
             import traceback
