@@ -146,30 +146,26 @@ def setup_environment():
     """Configure l'environnement virtuel et installe les dépendances"""
     print("=== Configuration de l'environnement de jeu ===", flush=True)
     venv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venv")
+    venv_python = os.path.join(venv_path, "Scripts", "python.exe")
     
-    # Création de l'environnement virtuel s'il n'existe pas
-    if not os.path.exists(venv_path):
-        print("Création de l'environnement virtuel...", flush=True)
-        venv.create(venv_path, with_pip=True)
-        print("Environnement virtuel créé avec succès", flush=True)
-    
-    # Détermine le chemin de l'exécutable Python dans l'environnement virtuel
-    if sys.platform == "win32":
-        python_path = os.path.join(venv_path, "Scripts", "python.exe")
-        pip_path = os.path.join(venv_path, "Scripts", "pip.exe")
-    else:
-        python_path = os.path.join(venv_path, "bin", "python")
-        pip_path = os.path.join(venv_path, "bin", "pip")
-    
-    # Installation des dépendances
-    print("Installation des dépendances...", flush=True)
-    requirements_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "requirements.txt")
     try:
-        subprocess.check_call([pip_path, "install", "-r", requirements_path])
-        print("[OK] Dépendances installées avec succès", flush=True)
-        return python_path
+        if not os.path.exists(venv_path):
+            print("Création de l'environnement virtuel...", flush=True)
+            venv.create(venv_path, with_pip=True)
+            print("Environnement virtuel créé avec succès", flush=True)
+        
+        print("Installation des dépendances...", flush=True)
+        requirements_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "requirements.txt")
+        subprocess.check_call([venv_python, "-m", "pip", "install", "-r", requirements_file])
+        print("[OK] Dépendances installées avec succès\n", flush=True)
+        
+        return venv_python
+        
     except subprocess.CalledProcessError as e:
         print(f"[ERREUR] Erreur lors de l'installation des dépendances : {e}", flush=True)
+        return None
+    except Exception as e:
+        print(f"[ERREUR] Erreur lors de la configuration de l'environnement : {e}", flush=True)
         return None
 
 def load_dependencies():
@@ -203,7 +199,10 @@ def load_dependencies():
 def main():
     """Point d'entrée principal du jeu"""
     # Si nous ne sommes pas déjà dans un environnement virtuel
-    if not os.environ.get("VIRTUAL_ENV"):
+    venv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venv")
+    venv_python = os.path.join(venv_path, "Scripts", "python.exe")
+    
+    if not os.path.exists(venv_path):
         python_path = setup_environment()
         if python_path:
             print("\n=== Lancement du jeu ===", flush=True)
