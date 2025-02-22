@@ -24,7 +24,7 @@ class Map:
         
         # Position initiale du joueur (1, 12) comme spécifié
         self.player_pos = (1, 12)
-        self.npc_pos = None
+        self.pnjs = []  # Liste pour stocker tous les PNJ
         
         # Chargement des tiles
         self._load_tiles()
@@ -61,6 +61,26 @@ class Map:
         # Vérifier s'il y a une collision à cette position
         return not self.layer_manager.is_collision(x, y)
 
+    def add_pnj(self, pnj: 'PNJ'):
+        """Ajoute un PNJ à la map"""
+        # Si c'est le premier PNJ, le traiter comme le PNJ principal
+        if not self.pnjs:
+            self.pnj = pnj
+            self.npc_pos = (pnj.tile_x, pnj.tile_y)
+        
+        self.pnjs.append(pnj)
+        self.layer_manager.add_npc(pnj.tile_x, pnj.tile_y)
+        pnj.map = self
+
+    def remove_pnj(self):
+        """Retire le PNJ de la map"""
+        if self.pnj:
+            self.layer_manager.remove_npc(self.pnj.tile_x, self.pnj.tile_y)
+            if self.pnj in self.pnjs:
+                self.pnjs.remove(self.pnj)
+            self.pnj = None
+            self.npc_pos = None
+
     def move_player(self, dx: int, dy: int) -> tuple[bool, str, Optional[Tuple[int, int]], bool]:
         """
         Déplace le joueur selon les deltas donnés
@@ -78,7 +98,7 @@ class Map:
             return False, "Un obstacle bloque le passage.", None, False
         
         # Vérifie si la nouvelle position est le PNJ
-        if (new_x, new_y) == self.npc_pos:
+        if self.pnj and self.pnj.is_visible and (new_x, new_y) == (self.pnj.tile_x, self.pnj.tile_y):
             return True, "", None, True
 
         # Met à jour la position du joueur
@@ -99,6 +119,11 @@ class Map:
         
         # Rendre le calque d'arbres
         self.layer_manager.render_layer(screen, LayerType.TREE, camera_x, camera_y)
+
+        # Rendre tous les PNJ
+        for pnj in self.pnjs:
+            if pnj.is_visible:
+                pnj.render(screen, camera_x, camera_y)
 
     def render_debug_info(self, screen):
         """Affiche les informations de débogage, notamment les coordonnées de la souris"""

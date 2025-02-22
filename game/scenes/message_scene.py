@@ -3,11 +3,12 @@ import os
 from .base_scene import BaseScene
 
 class MessageScene(BaseScene):
-    def __init__(self, screen, game_state, message, display_manager=None):
+    def __init__(self, screen, game_state, message, display_manager=None, dialogue_getter=None):
         super().__init__(screen, game_state)
         self.screen = screen
         self.display_manager = display_manager
         self.message = message
+        self.dialogue_getter = dialogue_getter
         
         # Tailles de base pour les polices
         self.base_title_size = 48
@@ -50,7 +51,14 @@ class MessageScene(BaseScene):
                 if self.return_rect.collidepoint(event.pos):
                     return 'menu'  # Retour au menu principal
         elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE or event.key == pygame.K_RETURN:
+            if event.key == pygame.K_SPACE:
+                if self.dialogue_getter:
+                    new_message = self.dialogue_getter()
+                    if new_message is None:
+                        return 'menu'
+                    self.message = new_message
+                    return None
+            elif event.key == pygame.K_ESCAPE or event.key == pygame.K_RETURN:
                 return 'menu'  # Retour au menu principal
         elif event.type == pygame.VIDEORESIZE:
             self.update_fonts()

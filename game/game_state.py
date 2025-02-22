@@ -8,3 +8,4 @@ class GameState:
         self.game_over = False
         self.start_time = None
         self.temp_message = None  # Message temporaire pour la scène de message
+        self.active_pnj = None  # PNJ actif pour le dialogue
