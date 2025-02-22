@@ -80,11 +80,14 @@ class TiledMap:
         map_width = self.width * self.tile_size
         map_height = self.height * self.tile_size
         
-        # Mettre à jour l'échelle si un DisplayManager est fourni
-        if display_manager:
-            display_manager.update_scale(screen_width, screen_height, map_width, map_height)
+        # Créer une surface temporaire pour le rendu de la carte
+        temp_surface = pygame.Surface((map_width, map_height))
+        temp_surface.fill((0, 0, 0))  # Remplir avec du noir pour détecter les problèmes de rendu
         
-        # Dessiner chaque calque
+        # Obtenir le décalage de la caméra
+        camera_x, camera_y = self._get_camera_offset(screen, player)
+        
+        # Dessiner chaque calque sur la surface temporaire
         for layer in self.map.layers:
             if hasattr(layer, 'data'):  # Si c'est un calque de tuiles
                 for y in range(self.height):
@@ -97,18 +100,24 @@ class TiledMap:
                                 pos_x = x * self.tile_size
                                 pos_y = y * self.tile_size
                                 
-                                if display_manager:
-                                    # Appliquer l'échelle et l'offset
-                                    offset_x, offset_y = self._get_camera_offset(screen, player)
-                                    scaled_pos = display_manager.get_scaled_pos((pos_x + offset_x, pos_y + offset_y))
-                                    scaled_size = display_manager.get_scaled_size((self.tile_size, self.tile_size))
-                                    
-                                    # Redimensionner la tuile
-                                    scaled_tile = pygame.transform.scale(tile, (int(scaled_size[0]), int(scaled_size[1])))
-                                    screen.blit(scaled_tile, scaled_pos)
-                                else:
-                                    offset_x, offset_y = self._get_camera_offset(screen, player)
-                                    screen.blit(tile, (pos_x + offset_x, pos_y + offset_y))
+                                # Dessiner la tuile sur la surface temporaire
+                                temp_surface.blit(tile, (pos_x, pos_y))
+        
+        # Appliquer l'échelle si nécessaire
+        if display_manager and (display_manager.scale_x != 1.0 or display_manager.scale_y != 1.0):
+            scaled_width = int(map_width * display_manager.scale_x)
+            scaled_height = int(map_height * display_manager.scale_y)
+            scaled_surface = pygame.transform.smoothscale(temp_surface, (scaled_width, scaled_height))
+        else:
+            scaled_surface = temp_surface
+            
+        # Calculer la position finale sur l'écran
+        final_x = max(0, min(camera_x, map_width - screen_width))
+        final_y = max(0, min(camera_y, map_height - screen_height))
+        
+        # Dessiner la portion visible de la carte sur l'écran
+        view_rect = pygame.Rect(-final_x, -final_y, screen_width, screen_height)
+        screen.blit(scaled_surface, (0, 0), view_rect)
 
     def get_layer_by_name(self, name):
         """Récupère un calque par son nom"""
