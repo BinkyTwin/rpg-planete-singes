@@ -28,12 +28,6 @@ class GameScene(BaseScene):
             self.game_state.player.rect.x = self.game_state.player.x
             self.game_state.player.rect.y = self.game_state.player.y
         
-        # Mode debug
-        self.debug_mode = True
-        
-        # Test initial des coordonnées
-        self.test_coordinates()
-
         # Variables pour l'animation
         self.animation_frame = 0
         self.animation_timer = 0
@@ -56,9 +50,6 @@ class GameScene(BaseScene):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 return 'menu'
-            # Toggle debug mode with F3
-            elif event.key == pygame.K_F3:
-                self.debug_mode = not self.debug_mode
             # Gestion du mouvement du joueur
             elif event.key in [pygame.K_z, pygame.K_s, pygame.K_q, pygame.K_d]:
                 self.handle_player_movement(event.key)
@@ -179,38 +170,18 @@ class GameScene(BaseScene):
         if self.tiled_map:
             self.tiled_map.render(screen, self.game_state.player, self.display_manager)
             
-            # Afficher les informations de débogage
-            if self.debug_mode:
-                # Position de la souris
-                mouse_x, mouse_y = pygame.mouse.get_pos()
-                if self.display_manager:
-                    mouse_x, mouse_y = self.display_manager.unscale_pos((mouse_x, mouse_y))
-                grid_x, grid_y = self.screen_to_grid(mouse_x, mouse_y)
-                
-                debug_lines = [
-                    f"Écran: ({int(mouse_x)}, {int(mouse_y)})",
-                    f"Grille: ({grid_x}, {grid_y})",
-                    f"Mode: {'Plein écran' if self.display_manager and self.display_manager.is_fullscreen else 'Fenêtré'}",
-                    f"Échelle: {self.display_manager.scale_x:.2f}x" if self.display_manager else "Échelle: 1.0x"
-                ]
-                
+            # Afficher les coordonnées du joueur
+            if self.game_state.player:
                 # Créer un fond semi-transparent
                 padding = 10
-                line_height = self.font.get_height()
-                max_width = max(self.font.size(line)[0] for line in debug_lines)
-                bg_height = (len(debug_lines) * line_height) + (padding * 2)
+                debug_text = f"Position: ({int(self.game_state.player.x)}, {int(self.game_state.player.y)})"
+                text_surface = self.font.render(debug_text, True, (255, 255, 255))
                 
-                bg_surface = pygame.Surface((max_width + padding * 2, bg_height))
+                bg_surface = pygame.Surface((text_surface.get_width() + padding * 2, text_surface.get_height() + padding * 2))
                 bg_surface.fill((0, 0, 0))
                 bg_surface.set_alpha(128)
                 screen.blit(bg_surface, (0, 0))
-                
-                # Afficher le texte
-                y = padding
-                for line in debug_lines:
-                    text = self.font.render(line, True, (255, 255, 255))
-                    screen.blit(text, (padding, y))
-                    y += line_height
+                screen.blit(text_surface, (padding, padding))
                     
         # Affichage du joueur avec son sprite animé
         if self.game_state.player:
@@ -233,7 +204,3 @@ class GameScene(BaseScene):
             
             # Afficher le sprite
             screen.blit(current_sprite, player_pos)
-            
-        # DEBUG: Affichage des rectangles de collision
-        # for rect in self.collision_rects:
-        #     pygame.draw.rect(self.screen, (255, 0, 0), rect, 1) 
