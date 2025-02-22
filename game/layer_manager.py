@@ -5,6 +5,7 @@ class LayerType(Enum):
     GROUND = "ground"  # Calque de sol
     COLLISION = "collision"  # Calque de collision
     TREE = "tree"  # Calque des arbres (profondeur)
+    NPC = "npc"  # Calque des PNJ
 
 class LayerManager:
     def __init__(self, width: int, height: int):
@@ -15,14 +16,16 @@ class LayerManager:
         self.layers = {
             LayerType.GROUND: [[0 for _ in range(width)] for _ in range(height)],
             LayerType.COLLISION: [[0 for _ in range(width)] for _ in range(height)],
-            LayerType.TREE: [[0 for _ in range(width)] for _ in range(height)]
+            LayerType.TREE: [[0 for _ in range(width)] for _ in range(height)],
+            LayerType.NPC: [[0 for _ in range(width)] for _ in range(height)]
         }
         
         # Chargement des tiles
         self.tiles = {
             LayerType.GROUND: [],  # Liste des tiles de sol
             LayerType.COLLISION: [],  # Liste des tiles de collision
-            LayerType.TREE: []  # Liste des tiles d'arbres
+            LayerType.TREE: [],  # Liste des tiles d'arbres
+            LayerType.NPC: []  # Liste des tiles de PNJ
         }
         
     def load_tiles(self, layer_type: LayerType, tile_paths: list):
@@ -49,6 +52,14 @@ class LayerManager:
     def is_tree(self, x: int, y: int) -> bool:
         """Vérifie si la position est sur un arbre (calque de profondeur)"""
         return self.get_tile(LayerType.TREE, x, y) != 0
+
+    def add_npc(self, x: int, y: int):
+        """Ajoute un PNJ sur le calque des PNJ"""
+        self.set_tile(LayerType.NPC, x, y, 1)
+
+    def remove_npc(self, x: int, y: int):
+        """Retire un PNJ du calque des PNJ"""
+        self.set_tile(LayerType.NPC, x, y, 0)
         
     def render_layer(self, screen: pygame.Surface, layer_type: LayerType, camera_x: int = 0, camera_y: int = 0):
         """Rend un calque spécifique à l'écran"""
@@ -64,7 +75,7 @@ class LayerManager:
         for y in range(start_y, end_y):
             for x in range(start_x, end_x):
                 tile_id = self.layers[layer_type][y][x]
-                if tile_id > 0:  # Si le tile n'est pas vide
+                if tile_id > 0 and layer_type in self.tiles and self.tiles[layer_type]:  # Si le tile n'est pas vide et qu'il y a des tiles chargés
                     screen_x = x * tile_size - camera_x
                     screen_y = y * tile_size - camera_y
                     screen.blit(self.tiles[layer_type][tile_id - 1], (screen_x, screen_y))
