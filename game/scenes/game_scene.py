@@ -3,7 +3,7 @@ import os
 from .base_scene import BaseScene
 from game.tiled_map import TiledMap
 from game.pnj import PNJ
-from game.items import ITEMS
+from game.items import ITEMS, ItemType
 from game.ui.dialog_box import DialogBox
 
 class GameScene(BaseScene):
@@ -73,31 +73,42 @@ class GameScene(BaseScene):
         self.title_font = pygame.font.SysFont("arial", title_size)
 
     def handle_event(self, event):
+        print("=== DEBUG: Gestion d'un événement ===")
+        print(f"Type d'événement: {event.type}")
+        
         # Si une boîte de dialogue est active, la gérer en priorité
         if self.dialog_box and self.dialog_box.active:
             if self.dialog_box.handle_event(event):
+                print("=== DEBUG: Gestion de l'événement de dialogue ===")
                 # Si un choix a été fait
                 if self.current_item and self.dialog_box.result is not None:
+                    print(f"DEBUG: Résultat du dialogue: {self.dialog_box.result}")
                     if self.dialog_box.result:
-                        self.current_item.collected = True
-                        print(f"Item {self.current_item.name} collecté!")
-                        # TODO: Ajouter l'item à l'inventaire du joueur
+                        if self.add_item_to_inventory(self.current_item):
+                            print(f"DEBUG: {self.current_item.name} collecté avec succès!")
+                        else:
+                            print(f"DEBUG: Échec de la collecte de {self.current_item.name}")
                     else:
-                        print(f"Item {self.current_item.name} laissé sur place.")
+                        print(f"DEBUG: {self.current_item.name} laissé sur place.")
                 self.dialog_box = None
                 self.current_item = None
             return None
 
         if event.type == pygame.KEYDOWN:
+            print(f"DEBUG: Appui sur la touche {event.key}")
             if event.key == pygame.K_ESCAPE:
                 return 'menu'
             # Gestion du dialogue avec le PNJ
-            elif event.key == pygame.K_e and self.pnj.is_visible:
-                if self.game_state.player and self.pnj.can_trigger_dialogue(self.game_state.player):
+            elif event.key == pygame.K_e:
+                if self.pnj.is_visible and self.game_state.player and self.pnj.can_trigger_dialogue(self.game_state.player):
                     if not self.pnj.is_in_dialogue:
                         message = self.pnj.start_dialogue()
                         if message:
                             print(f"PNJ dit : {message}")
+                else:
+                    # Si pas de dialogue avec PNJ, vérifier les items
+                    self.handle_item_interaction()
+
             # Gestion du passage au message suivant avec ESPACE
             elif event.key == pygame.K_SPACE and self.pnj.is_in_dialogue:
                 message = self.pnj.next_message()
@@ -117,6 +128,7 @@ class GameScene(BaseScene):
         return None
 
     def handle_player_movement(self, key):
+        print(f"=== DEBUG: Mouvement du joueur avec la touche {key} ===")
         if self.game_state.player:
             dx, dy = 0, 0
             if key == pygame.K_z:
@@ -170,23 +182,57 @@ class GameScene(BaseScene):
                 
     def handle_item_interaction(self):
         """Gère l'interaction avec les items lorsque la touche E est pressée"""
+        print("=== DEBUG: Interaction avec les items ===")
         if not self.game_state.player or self.dialog_box:
             return
 
+        # Obtenir la position actuelle du joueur en tuiles
         player_pos = (self.game_state.player.x, self.game_state.player.y)
-        for item_name, item_data in self.items.items():
+        
+        # Vérifier tous les items non collectés
+        for item_name, item_data in self.items.items():  
             item = item_data['item']
-            if not item.collected and item.position == player_pos:
+            if not item.collected and hasattr(item, 'position') and item.position == player_pos:
                 self.current_item = item
+                # Créer une boîte de dialogue pour confirmer la collecte
+                stats_text = None
+                if item.item_type == ItemType.WEAPON:
+                    stats_text = f"Dégâts: {item.value}"
+                elif item.item_type == ItemType.ARMOR:
+                    stats_text = f"Bonus HP: +{item.value}"
+                elif item.item_type == ItemType.POTION:
+                    stats_text = f"Restaure {item.value} HP"
+
                 self.dialog_box = DialogBox(
                     self.screen,
-                    f"Voulez-vous ramasser {item.name}?",
-                    font_size=self.base_font_size
+                    f"Voulez-vous ramasser {item.name} ?",
+                    stats_text=stats_text
                 )
                 break
 
+    def add_item_to_inventory(self, item):
+        """Ajoute un item à l'inventaire du joueur"""
+        print("=== DEBUG: Tentative d'ajout d'item à l'inventaire ===")
+        print(f"Item name: {item.name}")
+        print(f"Items actuels: {list(self.items.keys())}")
+        
+        if not self.game_state.player or not hasattr(self.game_state.player, 'inventory'):
+            print("DEBUG: Pas de joueur ou d'inventaire")
+            return False
+
+        if self.game_state.player.inventory.add_item(item):
+            print(f"DEBUG: {item.name} ajouté à l'inventaire avec succès")
+            # Marquer l'item comme collecté
+            item.collected = True
+            print(f"DEBUG: Item {item.name} marqué comme collecté")
+            return True
+        else:
+            print("DEBUG: Inventaire plein!")
+            return False
+
     def handle_movement(self, keys):
         """Gère le mouvement du joueur"""
+        print("=== DEBUG: Mouvement du joueur ===")
         if not self.game_state.player:
             return
 
@@ -211,6 +257,12 @@ class GameScene(BaseScene):
         print(f"Après mouvement - Tuiles: ({self.game_state.player.x}, {self.game_state.player.y}), Pixels: ({self.game_state.player.rect.x}, {self.game_state.player.rect.y})")
 
     def update(self):
+        # Mettre à jour les animations des items
+        for item_data in self.items.values():
+            item = item_data['item']
+            if item.is_animating:
+                item.update_animation()
+
         # Mettre à jour l'animation si le joueur se déplace
         current_time = pygame.time.get_ticks()
         if current_time - self.animation_timer >= self.animation_speed:
@@ -232,6 +284,7 @@ class GameScene(BaseScene):
 
     def update_camera(self):
         """Met à jour la position de la caméra pour suivre le joueur"""
+        print("=== DEBUG: Mise à jour de la caméra ===")
         if not self.game_state.player:
             return
             
@@ -251,6 +304,7 @@ class GameScene(BaseScene):
 
     def render(self, screen):
         """Rendu de la scène de jeu"""
+        print("=== DEBUG: Rendu de la scène de jeu ===")
         # Effacer l'écran
         screen.fill((0, 0, 0))
         
@@ -261,14 +315,26 @@ class GameScene(BaseScene):
             # Dessiner la carte avec l'offset de la caméra
             self.tiled_map.render(screen, (-self.camera_x, -self.camera_y))
             
-            # Afficher les items non collectés
-            for item_name, item_data in self.items.items():
+            # Afficher les items non collectés ou en cours d'animation
+            print("\n=== DEBUG: Rendu des items ===")
+            print(f"Nombre d'items à afficher: {len(self.items)}")
+            for item_name, item_data in list(self.items.items()):
                 item = item_data['item']
                 if not item.collected:
+                    print(f"DEBUG: Affichage de l'item {item_name} (collected: {item.collected}, animating: {item.is_animating})")
                     item_x = item.position[0] * self.tiled_map.tile_size - self.camera_x
                     item_y = item.position[1] * self.tiled_map.tile_size - self.camera_y
-                    screen.blit(item_data['image'], (item_x, item_y))
-            
+                    
+                    # Si l'item est en cours d'animation, appliquer l'effet de fade out
+                    if item.is_animating and item.animation:
+                        surface_to_render = item.animation.apply_to_surface(item_data['image'])
+                    else:
+                        surface_to_render = item_data['image']
+                        
+                    screen.blit(surface_to_render, (item_x, item_y))
+                else:
+                    print(f"DEBUG: Item {item_name} est collecté, on ne l'affiche pas")
+
             # Afficher les coordonnées du joueur
             padding = 10
             debug_text = f"Tuiles: ({int(self.game_state.player.x)}, {int(self.game_state.player.y)}) | Pixels: ({int(self.game_state.player.rect.x)}, {int(self.game_state.player.rect.y)})"
