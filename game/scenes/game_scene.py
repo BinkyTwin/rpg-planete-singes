@@ -2,6 +2,8 @@ import pygame
 import os
 from .base_scene import BaseScene
 from game.tiled_map import TiledMap
+from game.items import ITEMS
+from game.ui.dialog_box import DialogBox
 
 class GameScene(BaseScene):
     def __init__(self, screen, game_state, display_manager=None):
@@ -19,6 +21,16 @@ class GameScene(BaseScene):
         map_path = os.path.join(self.base_path, "assets", "mapV3.tmx")
         self.tiled_map = TiledMap(map_path)
         self.collision_rects = self.tiled_map.get_collider_rects()
+        
+        # Chargement des items
+        self.items = {}
+        for item_name, item in ITEMS.items():
+            if hasattr(item, 'image_path'):
+                image_path = os.path.join(self.base_path, item.image_path)
+                if os.path.exists(image_path):
+                    item_image = pygame.image.load(image_path)
+                    item_image = pygame.transform.scale(item_image, (self.tiled_map.tile_size, self.tiled_map.tile_size))
+                    self.items[item_name] = {'item': item, 'image': item_image}
         
         # Position initiale du joueur
         if self.game_state.player:
@@ -38,6 +50,10 @@ class GameScene(BaseScene):
         self.camera_x = 0
         self.camera_y = 0
         
+        # Variables pour la boîte de dialogue
+        self.dialog_box = None
+        self.current_item = None
+
     def update_fonts(self):
         """Met à jour les polices en fonction de l'échelle"""
         if self.display_manager:
@@ -51,12 +67,30 @@ class GameScene(BaseScene):
         self.title_font = pygame.font.SysFont("arial", title_size)
 
     def handle_event(self, event):
+        # Si une boîte de dialogue est active, la gérer en priorité
+        if self.dialog_box and self.dialog_box.active:
+            if self.dialog_box.handle_event(event):
+                # Si un choix a été fait
+                if self.current_item and self.dialog_box.result is not None:
+                    if self.dialog_box.result:
+                        self.current_item.collected = True
+                        print(f"Item {self.current_item.name} collecté!")
+                        # TODO: Ajouter l'item à l'inventaire du joueur
+                    else:
+                        print(f"Item {self.current_item.name} laissé sur place.")
+                self.dialog_box = None
+                self.current_item = None
+            return None
+
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 return 'menu'
             # Gestion du mouvement du joueur
             elif event.key in [pygame.K_z, pygame.K_s, pygame.K_q, pygame.K_d]:
                 self.handle_player_movement(event.key)
+            # Gestion de l'interaction avec les items
+            elif event.key == pygame.K_e:
+                self.handle_item_interaction()
                 
         # Si la fenêtre est redimensionnée, mettre à jour les polices
         elif event.type == pygame.VIDEORESIZE:
@@ -116,6 +150,23 @@ class GameScene(BaseScene):
                 self.animation_timer = pygame.time.get_ticks()
                 self.animation_frame = (self.animation_frame + 1) % 4
                 
+    def handle_item_interaction(self):
+        """Gère l'interaction avec les items lorsque la touche E est pressée"""
+        if not self.game_state.player or self.dialog_box:
+            return
+
+        player_pos = (self.game_state.player.x, self.game_state.player.y)
+        for item_name, item_data in self.items.items():
+            item = item_data['item']
+            if not item.collected and item.position == player_pos:
+                self.current_item = item
+                self.dialog_box = DialogBox(
+                    self.screen,
+                    f"Voulez-vous ramasser {item.name}?",
+                    font_size=self.base_font_size
+                )
+                break
+
     def handle_movement(self, keys):
         """Gère le mouvement du joueur"""
         if not self.game_state.player:
@@ -179,6 +230,14 @@ class GameScene(BaseScene):
             # Dessiner la carte avec l'offset de la caméra
             self.tiled_map.render(screen, (-self.camera_x, -self.camera_y))
             
+            # Afficher les items non collectés
+            for item_name, item_data in self.items.items():
+                item = item_data['item']
+                if not item.collected:
+                    item_x = item.position[0] * self.tiled_map.tile_size - self.camera_x
+                    item_y = item.position[1] * self.tiled_map.tile_size - self.camera_y
+                    screen.blit(item_data['image'], (item_x, item_y))
+            
             # Afficher les coordonnées du joueur
             padding = 10
             debug_text = f"Tuiles: ({int(self.game_state.player.x)}, {int(self.game_state.player.y)}) | Pixels: ({int(self.game_state.player.rect.x)}, {int(self.game_state.player.rect.y)})"
@@ -208,6 +267,10 @@ class GameScene(BaseScene):
             
             # Afficher le sprite
             screen.blit(current_sprite, player_pos)
+
+            # Afficher la boîte de dialogue si elle est active
+            if self.dialog_box and self.dialog_box.active:
+                self.dialog_box.render()
 
     def test_coordinates(self):
         """Test du système de coordonnées"""

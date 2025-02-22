@@ -1,65 +1,32 @@
-Tu as accès à tous les fichiers de mon projet RPG en Python utilisant Pygame. Le problème principal est que mon personnage apparaît plusieurs fois à l'écran (en 16 exemplaires au lieu d'un seul). Cela semble être un problème lié à la gestion des sprites ou au redessin dans la boucle principale. Les captures d'écran montrent aussi des artefacts noirs dans certaines zones de l'écran.
-Objectif :
+    Créer deux fichiers de documentation :
+        cdc-pnj.md (Cahier des Charges) :
+            Décrire la User Story : “En tant que joueur, je veux rencontrer un PNJ ‘orang_outan’ (même faction que moi), discuter avec lui pour lancer/mettre à jour une quête, puis le voir disparaître une fois le dialogue terminé.”
+            Lister les critères d’acceptation (position éloignée, sprite orang_outan.png, dialogue en plusieurs messages, disparition du PNJ à la fin).
+            Détailler les sous-tâches (classe PNJ, déclenchement du dialogue, intégration à la map Pygame, suppression du PNJ).
+        todo-pnj.md (Approche TDD) :
+            Lister les tests (par ex. test_pnj_creation, test_pnj_dialogue_flow, test_pnj_disappears_after_dialogue, etc.).
+            Expliquer brièvement comment valider la disparition du PNJ au dernier message.
 
-Diagnostiquer et corriger le problème de duplication du personnage ainsi que les artefacts graphiques. Utilise une approche systématique pour identifier la cause et proposer une solution robuste.
-Instructions :
+    Fonctionnalités à implémenter ou compléter :
+        PNJ
+            Race “orang_outan”.
+            Même faction que le joueur (player.faction).
+            Sprite = orang_outan.png.
+            Position à distance (par ex. coins opposés, ou coordonnées (10,10) si le joueur est (1,1)).
+        Interaction / Dialogue
+            Quand le joueur entre en collision avec le PNJ ou s’en approche suffisamment, afficher les messages du PNJ (un par touche pressée).
+            À la fin du dialogue (dernier message “au revoir”), supprimer instantanément le PNJ de la map (ex. retirer son sprite, retirer l’objet PNJ de la liste des entités).
+        Mise à jour / Déclenchement de quête
+            Au moment où le PNJ disparaît, marquer un objectif comme terminé ou en créer un nouveau dans QuestSystem.
 
-    Analyse du problème :
+    Production attendue
+        Fichiers cdc-pnj.md et todo-pnj.md.
+        Code pour :
+            Créer ce PNJ orang_outan.
+            L’afficher sur la map.
+            Gérer le dialogue (multi-messages).
+            Le faire disparaître (enlever son sprite, instance) une fois le dialogue fini.
+            Mettre à jour ou activer une quête.
+        Exemple d’intégration dans le fichier principal ou dans la scène de jeu (GameScene), montrant la création du PNJ, son placement, la détection de collision, l’affichage du dialogue, puis la disparition au dernier message.
 
-        Parcours les fichiers du projet pour identifier la gestion des sprites (création, ajout aux groupes, dessin, mise à jour).
-
-        Vérifie la boucle principale (game loop) pour voir si l'écran est correctement effacé avant de redessiner les éléments.
-
-        Recherche si le sprite du personnage est ajouté plusieurs fois à un groupe ou recréé à chaque itération.
-
-    Approche TDD (Test-Driven Development) :
-
-        Écris un test unitaire pour vérifier que le personnage n'est dessiné qu'une seule fois sur l'écran.
-
-        Ajoute un test pour détecter les artefacts graphiques (par exemple, vérifier que les pixels noirs inattendus n'apparaissent pas après le rendu).
-
-    Débogage :
-
-        Ajoute des points de journalisation (logging) dans les sections critiques du code, comme la création des sprites et leur ajout aux groupes.
-
-        Vérifie si des instances multiples du sprite sont créées ou manipulées.
-
-    Correction :
-
-        Si le problème vient d'une mauvaise gestion des groupes de sprites, corrige le code pour t'assurer que chaque sprite est ajouté une seule fois.
-
-        Si le problème vient d'un écran qui n'est pas correctement réinitialisé, ajoute un appel à screen.fill() ou équivalent avant chaque redessin.
-
-    Optimisation :
-
-        Vérifie si la gestion de la caméra ou du scrolling interfère avec l'affichage.
-
-        Assure-toi que seules les parties nécessaires de l'écran sont mises à jour (par exemple, via pygame.display.update() avec des rectangles spécifiques).
-
-    Validation :
-
-        Une fois les corrections apportées, exécute les tests unitaires pour valider que le problème est résolu.
-
-        Fais une vérification visuelle en exécutant le jeu pour confirmer que le personnage s'affiche correctement et qu'il n'y a plus d'artefacts noirs.
-
-    Documentation :
-
-        Documente les changements effectués dans le code.
-
-        Explique brièvement la cause du problème et comment il a été résolu.
-
-Ressources disponibles :
-
-    Tous les fichiers du projet (code source, assets graphiques, etc.).
-
-    Les captures d'écran fournies comme référence visuelle.
-
-    La possibilité d'exécuter et de tester le jeu.
-
-Résultat attendu :
-
-    Le personnage doit s'afficher une seule fois sur l'écran.
-
-    Les artefacts graphiques noirs doivent disparaître.
-
-    Le jeu doit fonctionner normalement sans perte de performance.
+Merci de tout générer (docs + code + exemple d’utilisation) !
