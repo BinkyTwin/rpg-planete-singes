@@ -466,8 +466,8 @@ class CharacterCreationScene(BaseScene):
         # Création du personnage avec les choix effectués
         self.game_state.player = Player(
             name=self.name,
-            x=1,  # Position initiale
-            y=1,
+            x=6,  # Position initiale en tuiles
+            y=28,
             race=self.races[self.selected_race],
             faction=self.factions[self.selected_faction]
         ) 

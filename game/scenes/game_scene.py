@@ -22,12 +22,10 @@ class GameScene(BaseScene):
         
         # Position initiale du joueur
         if self.game_state.player:
-            # Position en pixels spécifiée
-            self.game_state.player.rect.x = 192
-            self.game_state.player.rect.y = 896
-            # Convertir les coordonnées de pixels en tuiles
-            self.game_state.player.x = self.game_state.player.rect.x // self.tiled_map.tile_size
-            self.game_state.player.y = self.game_state.player.rect.y // self.tiled_map.tile_size
+            # Position en tuiles (192/32=6, 896/32=28)
+            self.game_state.player.x = 6
+            self.game_state.player.y = 28
+            # Le rectangle sera mis à jour automatiquement dans la classe Player
             print(f"Position initiale - Tuiles: ({self.game_state.player.x}, {self.game_state.player.y}), Pixels: ({self.game_state.player.rect.x}, {self.game_state.player.rect.y})")
         
         # Variables pour l'animation
@@ -118,6 +116,31 @@ class GameScene(BaseScene):
                 self.animation_timer = pygame.time.get_ticks()
                 self.animation_frame = (self.animation_frame + 1) % 4
                 
+    def handle_movement(self, keys):
+        """Gère le mouvement du joueur"""
+        if not self.game_state.player:
+            return
+
+        # Sauvegarde de l'ancienne position pour le debug
+        old_x = self.game_state.player.x
+        old_y = self.game_state.player.y
+        old_rect_x = self.game_state.player.rect.x
+        old_rect_y = self.game_state.player.rect.y
+
+        print(f"Avant mouvement - Tuiles: ({old_x}, {old_y}), Pixels: ({old_rect_x}, {old_rect_y})")
+        
+        # Vérification des touches pressées et appel de handle_player_movement pour chaque direction
+        if keys[pygame.K_z]:
+            self.handle_player_movement(pygame.K_z)
+        if keys[pygame.K_s]:
+            self.handle_player_movement(pygame.K_s)
+        if keys[pygame.K_q]:
+            self.handle_player_movement(pygame.K_q)
+        if keys[pygame.K_d]:
+            self.handle_player_movement(pygame.K_d)
+
+        print(f"Après mouvement - Tuiles: ({self.game_state.player.x}, {self.game_state.player.y}), Pixels: ({self.game_state.player.rect.x}, {self.game_state.player.rect.y})")
+
     def update(self):
         # Mettre à jour l'animation si le joueur se déplace
         current_time = pygame.time.get_ticks()

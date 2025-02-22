@@ -88,9 +88,7 @@ class Player:
         self.inventory = Inventory()
 
         # Rectangle de collision
-        self.rect = pygame.Rect(x, y, 32, 32)  # Rectangle de 32x32 pixels pour le joueur
-        self.rect.centerx = x
-        self.rect.centery = y
+        self.rect = pygame.Rect(x * self.tile_size, y * self.tile_size, self.tile_size, self.tile_size)  # Rectangle de 32x32 pixels pour le joueur
         
         # Image par défaut (un carré coloré en attendant les sprites)
         self.image = pygame.Surface((32, 32))
@@ -205,8 +203,8 @@ class Player:
         # Tester le mouvement complet
         self.x = new_x
         self.y = new_y
-        self.rect.x = int(self.x)
-        self.rect.y = int(self.y)
+        self.rect.x = int(self.x * self.tile_size)
+        self.rect.y = int(self.y * self.tile_size)
         
         # Vérifier les collisions
         if tiled_map and self._check_collision(tiled_map):
@@ -226,8 +224,8 @@ class Player:
                 self.direction = "down" if dy > 0 else "up"
                 
             # Mettre à jour la position du rectangle
-            self.rect.centerx = self.x
-            self.rect.centery = self.y
+            self.rect.centerx = self.x * self.tile_size
+            self.rect.centery = self.y * self.tile_size
         else:
             self.is_moving = False
             self.animation_frame = 0
