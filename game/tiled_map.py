@@ -24,27 +24,32 @@ class TiledMap:
             self.pixel_width = self.width * self.tile_size
             self.pixel_height = self.height * self.tile_size
             
+            print(f"Dimensions de la carte - Tuiles: {self.width}x{self.height}, Pixels: {self.pixel_width}x{self.pixel_height}")
+            
         except Exception as e:
             print(f"Erreur lors du chargement de la carte: {str(e)}")
             raise
 
-    def _get_camera_offset(self, screen, player):
+    def _get_camera_offset(self, screen, player_rect):
         """Calcule le décalage de la caméra pour centrer sur le joueur"""
         # Calculer le centre de l'écran
         screen_width = screen.get_width()
         screen_height = screen.get_height()
         
         # Calculer la position cible de la caméra (centrée sur le joueur)
-        target_x = player.x - screen_width // 2
-        target_y = player.y - screen_height // 2
+        target_x = player_rect.x - screen_width // 2 + self.tile_size // 2
+        target_y = player_rect.y - screen_height // 2 + self.tile_size // 2
+        
+        # Debug: Afficher les positions de la caméra
+        print(f"Camera - Target: ({target_x}, {target_y}), Screen: ({screen_width}, {screen_height})")
+        print(f"Map Size: {self.pixel_width}x{self.pixel_height}, Player: ({player_rect.x}, {player_rect.y})")
         
         # Limiter la caméra aux bords de la carte
-        max_x = self.pixel_width - screen_width
-        max_y = self.pixel_height - screen_height
+        camera_x = max(0, min(target_x, max(0, self.pixel_width - screen_width)))
+        camera_y = max(0, min(target_y, max(0, self.pixel_height - screen_height)))
         
-        # Ajuster la position de la caméra
-        camera_x = max(0, min(target_x, max_x))
-        camera_y = max(0, min(target_y, max_y))
+        # Debug: Afficher les offsets finaux
+        print(f"Camera Offset: ({-camera_x}, {-camera_y})")
         
         # Retourner le décalage négatif pour le rendu
         return -camera_x, -camera_y
@@ -70,54 +75,37 @@ class TiledMap:
         print(f"Pas de collision")
         return False
 
-    def render(self, screen, player, display_manager=None):
+    def render(self, screen, camera_offset):
         """Rendu de la carte"""
         # Obtenir les dimensions de l'écran
         screen_width = screen.get_width()
         screen_height = screen.get_height()
         
-        # Calculer les dimensions de la carte
-        map_width = self.width * self.tile_size
-        map_height = self.height * self.tile_size
+        # Calculer les tuiles visibles basées sur l'offset de la caméra
+        start_x = max(0, -camera_offset[0] // self.tile_size)
+        start_y = max(0, -camera_offset[1] // self.tile_size)
+        end_x = min(self.width, (-camera_offset[0] + screen_width) // self.tile_size + 1)
+        end_y = min(self.height, (-camera_offset[1] + screen_height) // self.tile_size + 1)
         
-        # Créer une surface temporaire pour le rendu de la carte
-        temp_surface = pygame.Surface((map_width, map_height))
-        temp_surface.fill((0, 0, 0))  # Remplir avec du noir pour détecter les problèmes de rendu
+        print(f"Rendering tiles from ({start_x}, {start_y}) to ({end_x}, {end_y})")
+        print(f"Camera offset: {camera_offset}")
         
-        # Obtenir le décalage de la caméra
-        camera_x, camera_y = self._get_camera_offset(screen, player)
-        
-        # Dessiner chaque calque sur la surface temporaire
+        # Dessiner chaque calque visible
         for layer in self.map.layers:
             if hasattr(layer, 'data'):  # Si c'est un calque de tuiles
-                for y in range(self.height):
-                    for x in range(self.width):
+                for y in range(int(start_y), int(end_y)):
+                    for x in range(int(start_x), int(end_x)):
                         gid = layer.data[y][x]
                         if gid:
                             tile = self.map.get_tile_image_by_gid(gid)
                             if tile:
-                                # Position de base de la tuile
-                                pos_x = x * self.tile_size
-                                pos_y = y * self.tile_size
+                                # Position de la tuile avec offset de caméra
+                                pos_x = x * self.tile_size + camera_offset[0]
+                                pos_y = y * self.tile_size + camera_offset[1]
                                 
-                                # Dessiner la tuile sur la surface temporaire
-                                temp_surface.blit(tile, (pos_x, pos_y))
-        
-        # Appliquer l'échelle si nécessaire
-        if display_manager and (display_manager.scale_x != 1.0 or display_manager.scale_y != 1.0):
-            scaled_width = int(map_width * display_manager.scale_x)
-            scaled_height = int(map_height * display_manager.scale_y)
-            scaled_surface = pygame.transform.smoothscale(temp_surface, (scaled_width, scaled_height))
-        else:
-            scaled_surface = temp_surface
-            
-        # Calculer la position finale sur l'écran
-        final_x = max(0, min(camera_x, map_width - screen_width))
-        final_y = max(0, min(camera_y, map_height - screen_height))
-        
-        # Dessiner la portion visible de la carte sur l'écran
-        view_rect = pygame.Rect(-final_x, -final_y, screen_width, screen_height)
-        screen.blit(scaled_surface, (0, 0), view_rect)
+                                # Ne dessiner que si la tuile est visible à l'écran
+                                if -self.tile_size <= pos_x <= screen_width and -self.tile_size <= pos_y <= screen_height:
+                                    screen.blit(tile, (pos_x, pos_y))
 
     def get_layer_by_name(self, name):
         """Récupère un calque par son nom"""

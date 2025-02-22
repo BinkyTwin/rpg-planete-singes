@@ -20,19 +20,25 @@ class GameScene(BaseScene):
         self.tiled_map = TiledMap(map_path)
         self.collision_rects = self.tiled_map.get_collider_rects()
         
-        # Position initiale du joueur (en bas de la carte)
+        # Position initiale du joueur
         if self.game_state.player:
-            # Position en tuiles (15, 28) - centre horizontal, près du bas
-            self.game_state.player.x = 15 * self.tiled_map.tile_size
-            self.game_state.player.y = 28 * self.tiled_map.tile_size
-            self.game_state.player.rect.x = self.game_state.player.x
-            self.game_state.player.rect.y = self.game_state.player.y
+            # Position en pixels spécifiée
+            self.game_state.player.rect.x = 192
+            self.game_state.player.rect.y = 896
+            # Convertir les coordonnées de pixels en tuiles
+            self.game_state.player.x = self.game_state.player.rect.x // self.tiled_map.tile_size
+            self.game_state.player.y = self.game_state.player.rect.y // self.tiled_map.tile_size
+            print(f"Position initiale - Tuiles: ({self.game_state.player.x}, {self.game_state.player.y}), Pixels: ({self.game_state.player.rect.x}, {self.game_state.player.rect.y})")
         
         # Variables pour l'animation
         self.animation_frame = 0
         self.animation_timer = 0
         self.animation_speed = 100  # Millisecondes entre chaque frame
         self.last_direction = "down"  # Direction par défaut
+        
+        # Variables pour la caméra
+        self.camera_x = 0
+        self.camera_y = 0
         
     def update_fonts(self):
         """Met à jour les polices en fonction de l'échelle"""
@@ -76,9 +82,12 @@ class GameScene(BaseScene):
                 dx = 1
                 self.last_direction = "right"
             
-            # Calcul de la nouvelle position
-            new_x = self.game_state.player.x + dx
-            new_y = self.game_state.player.y + dy
+            # Calcul de la nouvelle position en tuiles
+            new_x = max(0, min(self.tiled_map.width - 1, self.game_state.player.x + dx))
+            new_y = max(0, min(self.tiled_map.height - 1, self.game_state.player.y + dy))
+            
+            # Debug: Afficher les coordonnées avant mouvement
+            print(f"Avant mouvement - Tuiles: ({self.game_state.player.x}, {self.game_state.player.y}), Pixels: ({self.game_state.player.rect.x}, {self.game_state.player.rect.y})")
             
             # Création d'un rectangle pour le joueur à la nouvelle position
             new_player_rect = pygame.Rect(
@@ -99,6 +108,12 @@ class GameScene(BaseScene):
             if can_move:
                 self.game_state.player.x = new_x
                 self.game_state.player.y = new_y
+                self.game_state.player.rect.x = new_x * self.tiled_map.tile_size
+                self.game_state.player.rect.y = new_y * self.tiled_map.tile_size
+                
+                # Debug: Afficher les coordonnées après mouvement
+                print(f"Après mouvement - Tuiles: ({self.game_state.player.x}, {self.game_state.player.y}), Pixels: ({self.game_state.player.rect.x}, {self.game_state.player.rect.y})")
+                
                 # Mettre à jour l'animation
                 self.animation_timer = pygame.time.get_ticks()
                 self.animation_frame = (self.animation_frame + 1) % 4
@@ -110,6 +125,67 @@ class GameScene(BaseScene):
             self.animation_timer = current_time
             self.animation_frame = (self.animation_frame + 1) % 4
                 
+    def update_camera(self):
+        """Met à jour la position de la caméra pour suivre le joueur"""
+        if not self.game_state.player:
+            return
+            
+        # Obtenir le centre de l'écran
+        screen_center_x = self.screen.get_width() // 2
+        screen_center_y = self.screen.get_height() // 2
+        
+        # Calculer la position cible de la caméra (centrée sur le joueur)
+        self.camera_x = self.game_state.player.rect.x - screen_center_x
+        self.camera_y = self.game_state.player.rect.y - screen_center_y
+        
+        # Limiter la caméra aux bords de la carte
+        self.camera_x = max(0, min(self.camera_x, self.tiled_map.pixel_width - self.screen.get_width()))
+        self.camera_y = max(0, min(self.camera_y, self.tiled_map.pixel_height - self.screen.get_height()))
+        
+        print(f"Camera position: ({self.camera_x}, {self.camera_y})")
+
+    def render(self, screen):
+        """Rendu de la scène de jeu"""
+        # Effacer l'écran
+        screen.fill((0, 0, 0))
+        
+        if self.tiled_map and self.game_state.player:
+            # Mettre à jour la position de la caméra
+            self.update_camera()
+            
+            # Dessiner la carte avec l'offset de la caméra
+            self.tiled_map.render(screen, (-self.camera_x, -self.camera_y))
+            
+            # Afficher les coordonnées du joueur
+            padding = 10
+            debug_text = f"Tuiles: ({int(self.game_state.player.x)}, {int(self.game_state.player.y)}) | Pixels: ({int(self.game_state.player.rect.x)}, {int(self.game_state.player.rect.y)})"
+            text_surface = self.font.render(debug_text, True, (255, 255, 255))
+            
+            bg_surface = pygame.Surface((text_surface.get_width() + padding * 2, text_surface.get_height() + padding * 2))
+            bg_surface.fill((0, 0, 0))
+            bg_surface.set_alpha(128)
+            screen.blit(bg_surface, (0, 0))
+            screen.blit(text_surface, (padding, padding))
+            
+            # Affichage du joueur avec son sprite animé
+            current_sprite = self.game_state.player.sprites[self.last_direction][self.animation_frame]
+            
+            # Position du joueur relative à la caméra
+            screen_x = self.game_state.player.rect.x - self.camera_x
+            screen_y = self.game_state.player.rect.y - self.camera_y
+            
+            # Ajuster la position pour centrer le sprite plus grand sur la tile
+            sprite_offset_x = (self.game_state.player.sprite_size - self.tiled_map.tile_size) // 2
+            sprite_offset_y = (self.game_state.player.sprite_size - self.tiled_map.tile_size) // 2
+            
+            player_pos = (
+                screen_x - sprite_offset_x,
+                screen_y - sprite_offset_y
+            )
+            
+            # Afficher le sprite
+            screen.blit(current_sprite, player_pos)
+
     def test_coordinates(self):
         """Test du système de coordonnées"""
         # Coordonnées de test
@@ -160,47 +236,3 @@ class GameScene(BaseScene):
         screen_y = (grid_y * tile_size) + camera_y
         
         return screen_x, screen_y
-
-    def render(self, screen):
-        """Rendu de la scène de jeu"""
-        # Effacer l'écran
-        screen.fill((0, 0, 0))
-        
-        # Dessiner la carte
-        if self.tiled_map:
-            self.tiled_map.render(screen, self.game_state.player, self.display_manager)
-            
-            # Afficher les coordonnées du joueur
-            if self.game_state.player:
-                # Créer un fond semi-transparent
-                padding = 10
-                debug_text = f"Position: ({int(self.game_state.player.x)}, {int(self.game_state.player.y)})"
-                text_surface = self.font.render(debug_text, True, (255, 255, 255))
-                
-                bg_surface = pygame.Surface((text_surface.get_width() + padding * 2, text_surface.get_height() + padding * 2))
-                bg_surface.fill((0, 0, 0))
-                bg_surface.set_alpha(128)
-                screen.blit(bg_surface, (0, 0))
-                screen.blit(text_surface, (padding, padding))
-                    
-        # Affichage du joueur avec son sprite animé
-        if self.game_state.player:
-            # Obtenir le sprite actuel
-            current_sprite = self.game_state.player.sprites[self.last_direction][self.animation_frame]
-            
-            # Calculer la position du joueur en pixels
-            # Centre le sprite sur la tile
-            player_x = self.game_state.player.x * self.tiled_map.tile_size
-            player_y = self.game_state.player.y * self.tiled_map.tile_size
-            
-            # Ajuster la position pour centrer le sprite plus grand sur la tile
-            sprite_offset_x = (self.game_state.player.sprite_size - self.tiled_map.tile_size) // 2
-            sprite_offset_y = (self.game_state.player.sprite_size - self.tiled_map.tile_size) // 2
-            
-            player_pos = (
-                player_x - sprite_offset_x,
-                player_y - sprite_offset_y
-            )
-            
-            # Afficher le sprite
-            screen.blit(current_sprite, player_pos)
