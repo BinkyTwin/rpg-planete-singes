@@ -6,4 +6,5 @@ class GameState:
         self.inventory = None
         self.current_scene = 'menu'
         self.game_over = False
-        self.start_time = None 
+        self.start_time = None
+        self.temp_message = None  # Message temporaire pour la scène de message

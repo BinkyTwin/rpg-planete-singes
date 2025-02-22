@@ -100,6 +100,26 @@ class Map:
         # Rendre le calque d'arbres
         self.layer_manager.render_layer(screen, LayerType.TREE, camera_x, camera_y)
 
+    def render_debug_info(self, screen):
+        """Affiche les informations de débogage, notamment les coordonnées de la souris"""
+        mouse_pos = pygame.mouse.get_pos()
+        # Convertir les coordonnées de l'écran en coordonnées de la grille
+        tile_size = 32  # Taille d'une tuile en pixels
+        grid_x = mouse_pos[0] // tile_size
+        grid_y = mouse_pos[1] // tile_size
+        
+        # Créer le texte à afficher
+        debug_font = pygame.font.Font(None, 24)
+        debug_text = f"Pos: ({mouse_pos[0]}, {mouse_pos[1]}) | Tuile: ({grid_x}, {grid_y})"
+        text_surface = debug_font.render(debug_text, True, (255, 255, 255))
+        
+        # Ajouter un fond semi-transparent pour une meilleure lisibilité
+        text_bg = pygame.Surface((text_surface.get_width() + 10, text_surface.get_height() + 6))
+        text_bg.fill((0, 0, 0))
+        text_bg.set_alpha(128)
+        screen.blit(text_bg, (5, 5))
+        screen.blit(text_surface, (10, 8))
+
     def display(self):
         """Affiche la carte avec sa légende"""
         print("\n=== Carte ===")

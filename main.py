@@ -7,6 +7,7 @@ import os
 import sys
 import venv
 import subprocess
+from game.display_manager import DisplayManager
 
 # Variables globales pour les imports
 pygame = None
@@ -25,6 +26,7 @@ GameState = None
 MenuScene = None
 GameScene = None
 CharacterCreationScene = None
+MessageScene = None
 
 class Game:
     def __init__(self):
@@ -34,14 +36,12 @@ class Game:
             pygame.init()
             print("Pygame initialisé avec succès", flush=True)
             
-            # Configuration de base
-            self.WINDOW_WIDTH = 800
-            self.WINDOW_HEIGHT = 600
+            # Initialiser le gestionnaire d'affichage
+            self.display_manager = DisplayManager()
             self.FPS = 60
             
             print("Création de la fenêtre...", flush=True)
-            # Création de la fenêtre
-            self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
+            # La fenêtre est déjà créée par le DisplayManager
             pygame.display.set_caption("La Planète des Singes - RPG")
             print("Fenêtre créée avec succès", flush=True)
             
@@ -56,9 +56,10 @@ class Game:
             print("Chargement des scènes...", flush=True)
             # Scènes du jeu
             self.scenes = {
-                'menu': MenuScene(self.screen, self.game_state),
-                'game': GameScene(self.screen, self.game_state),
-                'character_creation': CharacterCreationScene(self.screen, self.game_state)
+                'menu': MenuScene(self.display_manager.screen, self.game_state, self.display_manager),
+                'game': GameScene(self.display_manager.screen, self.game_state, self.display_manager),
+                'character_creation': CharacterCreationScene(self.display_manager.screen, self.game_state, self.display_manager),
+                'message': lambda: MessageScene(self.display_manager.screen, self.game_state, self.game_state.temp_message, self.display_manager)
             }
             self.current_scene = 'menu'
             print("Scènes chargées avec succès", flush=True)
@@ -76,8 +77,33 @@ class Game:
                 if event.type == pygame.QUIT:
                     return False
                     
+                # Gérer le redimensionnement de la fenêtre
+                elif event.type == pygame.VIDEORESIZE and not self.display_manager.is_fullscreen:
+                    old_size = self.display_manager.handle_resize(event.w, event.h)
+                    # Mettre à jour les scènes avec le nouveau screen
+                    for scene_name, scene in self.scenes.items():
+                        if callable(scene):
+                            self.scenes[scene_name] = scene()
+                        scene = self.scenes[scene_name]
+                        scene.screen = self.display_manager.screen
+                        
+                # Gérer le basculement plein écran (Alt+Enter)
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_RETURN and (event.mod & pygame.KMOD_ALT):
+                        old_size = self.display_manager.toggle_fullscreen()
+                        # Mettre à jour les scènes avec le nouveau screen
+                        for scene_name, scene in self.scenes.items():
+                            if callable(scene):
+                                self.scenes[scene_name] = scene()
+                            scene = self.scenes[scene_name]
+                            scene.screen = self.display_manager.screen
+                
                 # Laisse la scène courante gérer l'événement
-                new_scene = self.scenes[self.current_scene].handle_event(event)
+                scene = self.scenes[self.current_scene]
+                if callable(scene):
+                    self.scenes[self.current_scene] = scene()
+                    scene = self.scenes[self.current_scene]
+                new_scene = scene.handle_event(event)
                 if new_scene and new_scene in self.scenes:
                     self.current_scene = new_scene
                 
@@ -108,11 +134,15 @@ class Game:
         """Met à jour l'état du jeu"""
         try:
             # Met à jour la scène courante
-            self.scenes[self.current_scene].update()
+            scene = self.scenes[self.current_scene]
+            if callable(scene):
+                self.scenes[self.current_scene] = scene()
+                scene = self.scenes[self.current_scene]
+            scene.update()
             
-            if hasattr(self.scenes[self.current_scene], 'player'):
+            if hasattr(scene, 'player'):
                 move_vector = self.handle_input()
-                self.scenes[self.current_scene].player.move(move_vector, 1/60)
+                scene.player.move(move_vector, 1/60)
         except Exception as e:
             print(f"[ERREUR] Une erreur est survenue lors de la mise à jour : {e}", flush=True)
             import traceback
@@ -122,10 +152,14 @@ class Game:
         """Dessine le jeu"""
         try:
             # Efface l'écran
-            self.screen.fill((0, 0, 0))
+            self.display_manager.screen.fill((0, 0, 0))
             
             # Dessine la scène courante
-            self.scenes[self.current_scene].render()
+            scene = self.scenes[self.current_scene]
+            if callable(scene):
+                self.scenes[self.current_scene] = scene()
+                scene = self.scenes[self.current_scene]
+            scene.render(self.display_manager.screen)
             
             # Rafraîchit l'affichage
             pygame.display.flip()
@@ -192,7 +226,7 @@ def load_dependencies():
     """Charge toutes les dépendances nécessaires"""
     global pygame, Player, FactionName, FACTIONS, Inventory, ITEMS, ItemType
     global Map, TileType, SpawnManager, CombatSystem, DialogueSystem
-    global GameState, MenuScene, GameScene, CharacterCreationScene
+    global GameState, MenuScene, GameScene, CharacterCreationScene, MessageScene
     
     try:
         import pygame
@@ -211,6 +245,7 @@ def load_dependencies():
         from game.scenes.menu_scene import MenuScene
         from game.scenes.game_scene import GameScene
         from game.scenes.character_creation_scene import CharacterCreationScene
+        from game.scenes.message_scene import MessageScene
         print("Toutes les dépendances ont été chargées avec succès", flush=True)
     except ImportError as e:
         print(f"[ERREUR] Erreur lors de l'importation des dépendances : {e}", flush=True)

@@ -11,6 +11,6 @@ class BaseScene:
         """Met à jour la scène"""
         pass
         
-    def render(self):
+    def render(self, screen):
         """Dessine la scène"""
         pass 

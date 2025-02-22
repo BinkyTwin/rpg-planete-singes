@@ -63,6 +63,7 @@ class Player:
         self.animation_speed = 0.2  # Vitesse de l'animation
         self.is_moving = False
         self.sprite_size = 64  # Taille des sprites en pixels
+        self.tile_size = 32  # Taille des tuiles en pixels
         
         # Chargement des sprites
         self.sprites = self._load_character_sprites(race)
@@ -85,6 +86,15 @@ class Player:
 
         # Ajout de l'inventaire
         self.inventory = Inventory()
+
+        # Rectangle de collision
+        self.rect = pygame.Rect(x, y, 32, 32)  # Rectangle de 32x32 pixels pour le joueur
+        self.rect.centerx = x
+        self.rect.centery = y
+        
+        # Image par défaut (un carré coloré en attendant les sprites)
+        self.image = pygame.Surface((32, 32))
+        self.image.fill((255, 0, 0))  # Rouge pour le moment
 
     def _load_character_sprites(self, race):
         """Charge les sprites du personnage en fonction de sa race"""
@@ -136,20 +146,76 @@ class Player:
         
         return sprites
 
-    def update(self, dt):
+    def update(self, keys, collision_manager=None, dt=1/60):
         """Met à jour l'état du joueur"""
+        # Gestion du mouvement
+        dx = dy = 0
+        
+        # Touches directionnelles
+        if keys.get(pygame.K_LEFT) or keys.get(pygame.K_q):
+            dx = -1
+        if keys.get(pygame.K_RIGHT) or keys.get(pygame.K_d):
+            dx = 1
+        if keys.get(pygame.K_UP) or keys.get(pygame.K_z):
+            dy = -1
+        if keys.get(pygame.K_DOWN) or keys.get(pygame.K_s):
+            dy = 1
+            
+        # Normaliser le mouvement diagonal
+        if dx != 0 and dy != 0:
+            dx *= 0.7071  # 1/sqrt(2)
+            dy *= 0.7071
+            
+        # Calculer la nouvelle position
+        new_x = self.x + dx * self.speed * self.tile_size
+        new_y = self.y + dy * self.speed * self.tile_size
+        
+        # Vérifier les collisions si un gestionnaire est fourni
+        if collision_manager:
+            current_pos = (self.x / self.tile_size, self.y / self.tile_size)
+            new_pos = (new_x / self.tile_size, new_y / self.tile_size)
+            
+            if collision_manager.can_move_to(current_pos, new_pos):
+                self.move(dx, dy, collision_manager)
+        else:
+            self.move(dx, dy, None)
+            
+        # Mise à jour de l'animation
         if self.is_moving:
             self.animation_frame += self.animation_speed * dt
             if self.animation_frame >= len(self.sprites[self.direction]):
                 self.animation_frame = 0
-                
+
     def get_current_sprite(self):
         """Retourne le sprite actuel en fonction de la direction et de l'animation"""
         frame = int(self.animation_frame) % len(self.sprites[self.direction])
         return self.sprites[self.direction][frame]
 
-    def move(self, dx, dy):
-        """Déplace le joueur avec la gestion de la direction et de l'animation"""
+    def move(self, dx, dy, tiled_map):
+        """Déplace le joueur en prenant en compte les collisions"""
+        # Sauvegarder la position actuelle
+        original_x = self.x
+        original_y = self.y
+        original_rect = self.rect.copy()
+        
+        # Calculer la nouvelle position
+        new_x = self.x + dx
+        new_y = self.y + dy
+        
+        # Tester le mouvement complet
+        self.x = new_x
+        self.y = new_y
+        self.rect.x = int(self.x)
+        self.rect.y = int(self.y)
+        
+        # Vérifier les collisions
+        if tiled_map and self._check_collision(tiled_map):
+            # Annuler le mouvement complet
+            self.x = original_x
+            self.y = original_y
+            self.rect.x = original_rect.x
+            self.rect.y = original_rect.y
+            
         if dx != 0 or dy != 0:
             self.is_moving = True
             
@@ -159,12 +225,30 @@ class Player:
             else:
                 self.direction = "down" if dy > 0 else "up"
                 
-            # Mise à jour de la position avec la vitesse
-            self.x += dx * self.speed
-            self.y += dy * self.speed
+            # Mettre à jour la position du rectangle
+            self.rect.centerx = self.x
+            self.rect.centery = self.y
         else:
             self.is_moving = False
             self.animation_frame = 0
+
+    def _check_collision(self, tiled_map):
+        """Vérifie s'il y a collision avec les murs"""
+        # Obtenir les coordonnées en tuiles
+        tile_x = int(self.rect.centerx / tiled_map.tile_size)
+        tile_y = int(self.rect.centery / tiled_map.tile_size)
+        
+        # Vérifier les tuiles adjacentes
+        for y in range(tile_y - 1, tile_y + 2):
+            for x in range(tile_x - 1, tile_x + 2):
+                if tiled_map.is_wall(x, y):
+                    wall_rect = pygame.Rect(x * tiled_map.tile_size,
+                                         y * tiled_map.tile_size,
+                                         tiled_map.tile_size,
+                                         tiled_map.tile_size)
+                    if self.rect.colliderect(wall_rect):
+                        return True
+        return False
 
     def print_player(self):
         print(f"Nom : {self.name}")
