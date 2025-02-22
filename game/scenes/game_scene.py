@@ -2,6 +2,7 @@ import pygame
 import os
 from .base_scene import BaseScene
 from game.tiled_map import TiledMap
+from game.pnj import PNJ
 
 class GameScene(BaseScene):
     def __init__(self, screen, game_state, display_manager=None):
@@ -27,6 +28,11 @@ class GameScene(BaseScene):
             self.game_state.player.y = 28
             # Le rectangle sera mis à jour automatiquement dans la classe Player
             print(f"Position initiale - Tuiles: ({self.game_state.player.x}, {self.game_state.player.y}), Pixels: ({self.game_state.player.rect.x}, {self.game_state.player.rect.y})")
+        
+        # Initialisation du PNJ
+        self.pnj = PNJ(position=(20, 27))
+        if self.game_state.player:
+            self.pnj.sync_faction(self.game_state.player)
         
         # Variables pour l'animation
         self.animation_frame = 0
@@ -54,6 +60,18 @@ class GameScene(BaseScene):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 return 'menu'
+            # Gestion du dialogue avec le PNJ
+            elif event.key == pygame.K_e and self.pnj.is_visible:
+                if self.game_state.player and self.pnj.can_trigger_dialogue(self.game_state.player):
+                    if not self.pnj.is_in_dialogue:
+                        message = self.pnj.start_dialogue()
+                        if message:
+                            print(f"PNJ dit : {message}")
+            # Gestion du passage au message suivant avec ESPACE
+            elif event.key == pygame.K_SPACE and self.pnj.is_in_dialogue:
+                message = self.pnj.next_message()
+                if message:
+                    print(f"PNJ dit : {message}")
             # Gestion du mouvement du joueur
             elif event.key in [pygame.K_z, pygame.K_s, pygame.K_q, pygame.K_d]:
                 self.handle_player_movement(event.key)
@@ -147,7 +165,20 @@ class GameScene(BaseScene):
         if current_time - self.animation_timer >= self.animation_speed:
             self.animation_timer = current_time
             self.animation_frame = (self.animation_frame + 1) % 4
-                
+            # Mettre à jour l'animation du PNJ
+            if self.pnj and self.pnj.is_visible:
+                self.pnj.animation_frame = (self.pnj.animation_frame + 1) % 4
+
+        # Vérifier l'interaction avec le PNJ
+        if self.game_state.player and self.pnj.is_visible:
+            if self.pnj.can_trigger_dialogue(self.game_state.player):
+                # Si le dialogue n'est pas encore actif et que le joueur appuie sur E, démarrer le dialogue.
+                keys = pygame.key.get_pressed()
+                if keys[pygame.K_e] and not self.pnj.dialogue_system.is_dialogue_active:
+                    message = self.pnj.start_dialogue()
+                    if message:
+                        print(f"PNJ dit : {message}")
+
     def update_camera(self):
         """Met à jour la position de la caméra pour suivre le joueur"""
         if not self.game_state.player:
@@ -206,8 +237,41 @@ class GameScene(BaseScene):
                 screen_y - sprite_offset_y
             )
             
-            # Afficher le sprite
+            # Afficher le sprite du joueur
             screen.blit(current_sprite, player_pos)
+
+            # Afficher le PNJ s'il est visible
+            if self.pnj.is_visible:
+                self.pnj.render(screen, self.camera_x, self.camera_y)
+
+            # Afficher le message directif si le joueur est proche du PNJ
+            if self.pnj and self.pnj.is_visible and self.game_state.player and self.pnj.can_trigger_dialogue(self.game_state.player):
+                directive_text = "Cliquez sur E pour discuter avec le pnj"
+                directive_font = pygame.font.SysFont("arial", 24)
+                directive_surface = directive_font.render(directive_text, True, (255, 255, 255))
+                # Positionner le message en bas à gauche de l'écran
+                screen.blit(directive_surface, (20, self.screen.get_height() - 60))
+
+            # Afficher le dialogue du PNJ si actif
+            if self.pnj.dialogue_system.is_dialogue_active:
+                message = self.pnj.dialogue_system.get_current_message()
+                if message:
+                    # Créer une surface pour le texte du dialogue
+                    text_surface = self.font.render(message, True, (255, 255, 255))
+                    
+                    # Créer un fond semi-transparent
+                    padding = 20
+                    bg_surface = pygame.Surface((text_surface.get_width() + padding * 2, text_surface.get_height() + padding * 2))
+                    bg_surface.fill((0, 0, 0))
+                    bg_surface.set_alpha(192)
+                    
+                    # Position du dialogue en bas de l'écran
+                    dialog_x = (screen.get_width() - bg_surface.get_width()) // 2
+                    dialog_y = screen.get_height() - bg_surface.get_height() - 20
+                    
+                    # Afficher le fond et le texte
+                    screen.blit(bg_surface, (dialog_x, dialog_y))
+                    screen.blit(text_surface, (dialog_x + padding, dialog_y + padding))
 
     def test_coordinates(self):
         """Test du système de coordonnées"""
@@ -225,7 +289,7 @@ class GameScene(BaseScene):
         # Test 3: Vérification de la cohérence
         if abs(test_screen_x - back_screen_x) > 32 or abs(test_screen_y - back_screen_y) > 32:
             print("ERREUR: La conversion aller-retour n'est pas cohérente!")
-        
+
     def screen_to_grid(self, screen_x, screen_y):
         """Convertit les coordonnées écran en coordonnées grille"""
         # Taille des tuiles
