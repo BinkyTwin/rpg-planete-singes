@@ -9,7 +9,7 @@ QUEST_TEXT_COLOR = (255, 255, 255)  # Couleur du texte (blanc)
 QUEST_FONT_SIZE = 20  # Taille de la police
 
 # Constantes pour le panneau des touches
-SHORTCUT_RECT_HEIGHT = 120  # Hauteur du rectangle des raccourcis
+SHORTCUT_RECT_HEIGHT = 140  # Augmentation de la hauteur pour accommoder la nouvelle ligne
 SHORTCUT_RECT_COLOR = (50, 50, 50, 192)  # Couleur de fond avec transparence
 SHORTCUT_TEXT_COLOR = (255, 255, 255)  # Couleur du texte
 SHORTCUT_FONT_SIZE = 18  # Taille de la police
@@ -119,7 +119,8 @@ def draw_shortcut_panel(screen):
         "I : Inventaire",
         "E : Parler au PNJ",
         "E : Ramasser une arme",
-        "E : Ramasser une potion"
+        "E : Ramasser une potion",
+        "N'oubliez pas d'équiper votre arme" 
     ]
     
     # Afficher chaque ligne de texte

@@ -3,6 +3,7 @@ import os
 import sys 
 from .base_scene import BaseScene
 from game.combat_system import CombatSystem
+from game.ui.inventory_display import InventoryDisplay
 import random
 
 class MessageScene(BaseScene):
@@ -11,17 +12,20 @@ class MessageScene(BaseScene):
         self.screen = screen
         self.display_manager = display_manager
         # Si le message est None, utiliser un message par défaut
-        self.message = message if message is not None else "Message non disponible"
+        self.message = message if message is not None else "Vous êtes dans la zone de combat !\nPréparez vous\n\nVos HP: {game_state.player.hp}"
         self.dialogue_getter = dialogue_getter
         self.combat_system = CombatSystem()
         self.combat_log = []
         self.is_defeated = False
+        self.inventory_display = None  # Pour l'affichage de l'inventaire
+        self.is_defending = False  # Pour suivre l'état de défense
+        self.defense_buttons = []  # Boutons spécifiques pour la défense
+        self.inventory_timer = 0  # Timer pour l'inventaire
+        self.in_defense_mode = False  # Pour suivre si on est dans le mode défense
         
         # Mise à jour du message initial avec les HP actuels si on est dans une zone de combat
-        if "zone de combat" in message.lower() and game_state.player:
+        if message is not None and "zone de combat" in message.lower() and game_state.player:
             self.message = f"Vous êtes dans la zone de combat !\nPréparez vous\n\nVos HP: {game_state.player.hp}"
-        else:
-            self.message = message
         
         # -- Polices de base --
         self.base_font_size = 24
@@ -218,6 +222,24 @@ class MessageScene(BaseScene):
     # --------------------------------------------------------------------
     #   LOGIQUE DE COMBAT
     # --------------------------------------------------------------------
+    def create_defense_buttons(self):
+        """Crée les boutons spécifiques au mode défense"""
+        self.defense_buttons = []
+        defense_actions = ["Ouvrir l'inventaire", "Retour au combat"]
+        
+        button_width = 150
+        button_height = 40
+        for action in defense_actions:
+            text_surf = self.text_font.render(action, True, self.button_text_color)
+            text_surf_hover = self.text_font.render(action, True, (200, 200, 200))
+            self.defense_buttons.append({
+                'rect': pygame.Rect(0, 0, button_width, button_height),
+                'text': action,
+                'hover': False,
+                'lines_surface': [text_surf],
+                'lines_surface_hover': [text_surf_hover]
+            })
+
     def handle_combat_action(self, action):
         if not self.game_state.player:
             print("DEBUG: Pas de joueur trouvé")
@@ -235,6 +257,8 @@ class MessageScene(BaseScene):
         print(f"HP Ennemi: {self.game_state.pnj2.hp}")
 
         if action == "Attaquer":
+            self.is_defending = False  # Réinitialiser l'état de défense
+            self.in_defense_mode = False  # Sortir du mode défense
             weapon = None
             if hasattr(self.game_state.player, 'inventory'):
                 weapon = self.game_state.player.inventory.get_equipped_weapon()
@@ -302,19 +326,44 @@ class MessageScene(BaseScene):
                 return None
 
         elif action == "Se défendre":
+            self.is_defending = True  # Activer l'état de défense
+            self.in_defense_mode = True  # Activer le mode défense
+            self.create_defense_buttons()  # Créer les boutons de défense
+            
             self.combat_log.append("Vous vous mettez en position défensive.")
+            self.combat_log.append("Choisissez une action :")
+            self.combat_log.append("- Ouvrir l'inventaire (touche 'i')")
+            self.combat_log.append("- Retourner au combat")
+            
+            self.message = "\n".join(self.combat_log)
+            self.update_dialog_dimensions()
+            return None
+
+        elif action == "Ouvrir l'inventaire":
+            if not self.inventory_display:
+                self.inventory_display = InventoryDisplay(self.screen)
+            self.inventory_display.toggle()
+            self.inventory_timer = pygame.time.get_ticks()  # Démarrer le timer
+            return None
+
+        elif action == "Retour au combat":
+            self.in_defense_mode = False  # Désactiver le mode défense
+            
+            # Appliquer la réduction de dégâts (5% des dégâts normaux)
             damage_enemy, is_player_dead = self.combat_system.attack(
                 self.game_state.pnj2,
                 self.game_state.player,
                 self.game_state.pnj2.held_item,
-                True
+                True,
+                damage_reduction=0.95  # 95% de réduction
             )
+            
             print(f"\n=== APRÈS DÉFENSE ===")
             print(f"Dégâts réduits subis: {damage_enemy}")
             print(f"HP Joueur: {self.game_state.player.hp}")
             print(f"HP Ennemi: {self.game_state.pnj2.hp}")
 
-            self.combat_log.append("L'ennemi attaque, mais vous bloquez la majorité des dégâts !")
+            self.combat_log.append("L'ennemi attaque, mais votre défense réduit considérablement les dégâts !")
             self.combat_log.append(f"Vous ne subissez que {damage_enemy} dégâts.")
             self.combat_log.append(f"Vos HP: {self.game_state.player.hp}")
 
@@ -323,6 +372,7 @@ class MessageScene(BaseScene):
                 return None
 
         elif action == "Fuir":
+            self.is_defending = False  # Réinitialiser l'état de défense
             if random.random() < 0.5:
                 self.combat_log.append("Vous réussissez à fuir le combat !")
                 self.message = "\n".join(self.combat_log)
@@ -367,6 +417,21 @@ class MessageScene(BaseScene):
     # --------------------------------------------------------------------
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # Si l'inventaire est visible, gérer ses événements en priorité
+            if self.inventory_display and self.inventory_display.visible:
+                if self.inventory_display.handle_click(event.pos, self.game_state.player.inventory, self.game_state.player):
+                    # Fermer l'inventaire après utilisation d'un objet
+                    self.inventory_display.hide()
+                    return None
+                return None
+
+            # Si on est en mode défense, gérer les boutons de défense
+            if self.in_defense_mode:
+                for button in self.defense_buttons:
+                    if button['rect'].collidepoint(event.pos):
+                        return self.handle_combat_action(button['text'])
+                return None
+
             if not self.is_defeated:
                 # Bouton "Quitter" (si pas vaincu et qu'il est dessiné)
                 if self.quit_button.collidepoint(event.pos):
@@ -387,6 +452,17 @@ class MessageScene(BaseScene):
                             sys.exit(0)
                             
         elif event.type == pygame.MOUSEMOTION:
+            # Mise à jour du survol pour l'inventaire
+            if self.inventory_display and self.inventory_display.visible:
+                self.inventory_display.update_hover(event.pos)
+                return None
+
+            # Mise à jour du survol pour les boutons de défense
+            if self.in_defense_mode:
+                for button in self.defense_buttons:
+                    button['hover'] = button['rect'].collidepoint(event.pos)
+                return None
+
             if not self.is_defeated:
                 self.quit_button_hover = self.quit_button.collidepoint(event.pos)
                 for button in self.combat_buttons:
@@ -394,13 +470,30 @@ class MessageScene(BaseScene):
             else:
                 for button in self.defeat_buttons:
                     button['hover'] = button['rect'].collidepoint(event.pos)
+        
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_i:  # Touche 'i'
+                if self.inventory_display:
+                    if self.inventory_display.visible:
+                        self.inventory_display.hide()
+                    else:
+                        self.inventory_display.toggle()
+                        self.inventory_timer = pygame.time.get_ticks()
                     
         elif event.type == pygame.VIDEORESIZE:
             self.update_fonts()
             self.update_dialog_dimensions()
+            if self.inventory_display:
+                self.inventory_display.needs_update = True
         return None
 
     def update(self):
+        # Gestion du timer de l'inventaire
+        if self.inventory_display and self.inventory_display.visible:
+            current_time = pygame.time.get_ticks()
+            if current_time - self.inventory_timer > 5000:  # 5 secondes
+                self.inventory_display.hide()
+        
         # Mise à jour si zone de combat
         if not self.combat_log and "zone de combat" in self.message.lower() and self.game_state.player:
             self.message = f"Vous êtes dans la zone de combat !\nPréparez vous\n\nVos HP: {self.game_state.player.hp}"
@@ -421,6 +514,7 @@ class MessageScene(BaseScene):
             border_radius=10
         )
 
+        # Afficher le texte
         y_offset = self.padding
         for line in self.wrapped_lines:
             line_surface = self.text_font.render(line, True, self.text_color)
@@ -428,59 +522,103 @@ class MessageScene(BaseScene):
             dialog_surface.blit(line_surface, text_rect)
             y_offset += line_surface.get_height() + 5
 
-        # On choisit quels boutons dessiner
+        # Choisir quels boutons afficher
         if self.is_defeated:
             buttons_to_render = self.defeat_buttons
+        elif self.in_defense_mode:
+            buttons_to_render = self.defense_buttons
         else:
             buttons_to_render = self.combat_buttons
 
-        for button in buttons_to_render:
-            shadow_rect = button['rect'].copy()
-            shadow_rect.x -= self.dialog_rect.x
-            shadow_rect.y -= self.dialog_rect.y
-            shadow_rect.y += 2
-            pygame.draw.rect(dialog_surface, (30, 30, 30), shadow_rect, border_radius=5)
-            
-            button_rect = button['rect'].copy()
-            button_rect.x -= self.dialog_rect.x
-            button_rect.y -= self.dialog_rect.y
-            color = self.button_hover_color if button['hover'] else self.button_color
-            pygame.draw.rect(dialog_surface, color, button_rect, border_radius=5)
-            pygame.draw.rect(dialog_surface, (255, 255, 255), button_rect, 1, border_radius=5)
-            
-            lines = button['lines_surface_hover'] if button['hover'] else button['lines_surface']
-            total_lines_height = sum(s.get_height() for s in lines)
-            current_y = button_rect.centery - total_lines_height // 2
-            for surf in lines:
-                line_rect = surf.get_rect(centerx=button_rect.centerx, y=current_y)
-                dialog_surface.blit(surf, line_rect)
-                current_y += surf.get_height()
+        # Calcul des dimensions pour le positionnement des boutons
+        button_spacing = 20
+        total_width = sum(button['rect'].width for button in buttons_to_render) + button_spacing * (len(buttons_to_render) - 1)
+        
+        # Position horizontale des boutons (centrés)
+        start_x = (self.dialog_rect.width - total_width) // 2
+        
+        # Position verticale des boutons (en bas de la boîte de dialogue)
+        button_y = self.dialog_rect.height - 95  # Remonté de 10 pixels (de 80 à 90)
 
-        # Dessin du bouton "Quitter" seulement s'il n'y a PAS un seul bouton "Continuer"
-        # et qu'on n'est pas en défaite
-        if (not self.is_defeated 
-            and not (len(self.combat_buttons) == 1 and self.combat_buttons[0]['text'] == "Continuer")):
+        # Mise à jour et rendu des boutons
+        for i, button in enumerate(buttons_to_render):
+            # Calculer la position du bouton
+            button_x = start_x + i * (button['rect'].width + button_spacing)
             
-            button_relative_rect = pygame.Rect(
-                self.quit_button.x - self.dialog_rect.x,
-                self.quit_button.y - self.dialog_rect.y,
-                self.quit_button.width,
-                self.quit_button.height
-            )
+            # Mettre à jour la position du rectangle du bouton
+            # Ajout de la position de la boîte de dialogue pour synchroniser avec l'écran
+            absolute_x = self.dialog_rect.x + button_x
+            absolute_y = self.dialog_rect.y + button_y
+            button['rect'].update(absolute_x, absolute_y, button['rect'].width, button['rect'].height)
+
+            # Pour le rendu, utiliser les positions relatives à la surface de dialogue
+            button_relative_rect = pygame.Rect(button_x, button_y, button['rect'].width, button['rect'].height)
+
+            # Dessiner l'ombre du bouton
             shadow_rect = button_relative_rect.copy()
             shadow_rect.y += 2
             pygame.draw.rect(dialog_surface, (30, 30, 30), shadow_rect, border_radius=5)
             
+            # Dessiner le bouton
+            color = self.button_hover_color if button['hover'] else self.button_color
+            pygame.draw.rect(dialog_surface, color, button_relative_rect, border_radius=5)
+            pygame.draw.rect(dialog_surface, (255, 255, 255), button_relative_rect, 1, border_radius=5)
+            
+            # Dessiner le texte du bouton
+            lines = button['lines_surface_hover'] if button['hover'] else button['lines_surface']
+            total_lines_height = sum(s.get_height() for s in lines)
+            current_y = button_relative_rect.centery - total_lines_height // 2
+            
+            for surf in lines:
+                text_rect = surf.get_rect(
+                    centerx=button_relative_rect.centerx,
+                    centery=current_y + surf.get_height() // 2
+                )
+                dialog_surface.blit(surf, text_rect)
+                current_y += surf.get_height()
+
+        # Dessin du bouton "Quitter" si nécessaire
+        if (not self.is_defeated and not self.in_defense_mode
+            and not (len(self.combat_buttons) == 1 and self.combat_buttons[0]['text'] == "Continuer")):
+            
+            # Positionner le bouton Quitter en bas à droite
+            quit_button_y = self.dialog_rect.height - 45  # Monté de 15 pixels (de 30 à 45)
+            quit_button_x = self.dialog_rect.width - self.quit_button.width - 20
+            
+            # Mettre à jour la position absolue du rectangle de clic
+            absolute_x = self.dialog_rect.x + quit_button_x
+            absolute_y = self.dialog_rect.y + quit_button_y
+            self.quit_button.update(absolute_x, absolute_y, self.quit_button.width, self.quit_button.height)
+            
+            # Créer un rectangle relatif pour le rendu
+            button_relative_rect = pygame.Rect(quit_button_x, quit_button_y, self.quit_button.width, self.quit_button.height)
+            
+            # Dessiner l'ombre
+            shadow_rect = button_relative_rect.copy()
+            shadow_rect.y += 2
+            pygame.draw.rect(dialog_surface, (30, 30, 30), shadow_rect, border_radius=5)
+            
+            # Dessiner le bouton
             color = self.button_hover_color if self.quit_button_hover else self.button_color
             pygame.draw.rect(dialog_surface, color, button_relative_rect, border_radius=5)
             pygame.draw.rect(dialog_surface, (255, 255, 255), button_relative_rect, 1, border_radius=5)
             
+            # Dessiner le texte
             lines = self.quit_lines_surface_hover if self.quit_button_hover else self.quit_lines_surface
             total_lines_height = sum(s.get_height() for s in lines)
             current_y = button_relative_rect.centery - total_lines_height // 2
+            
             for surf in lines:
-                line_rect = surf.get_rect(centerx=button_relative_rect.centerx, y=current_y)
-                dialog_surface.blit(surf, line_rect)
+                text_rect = surf.get_rect(
+                    centerx=button_relative_rect.centerx,
+                    centery=current_y + surf.get_height() // 2
+                )
+                dialog_surface.blit(surf, text_rect)
                 current_y += surf.get_height()
 
+        # Afficher la boîte de dialogue
         screen.blit(dialog_surface, self.dialog_rect)
+
+        # Afficher l'inventaire par-dessus si nécessaire
+        if self.inventory_display and self.inventory_display.visible:
+            self.inventory_display.render(self.game_state.player.inventory)
