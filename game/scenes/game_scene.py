@@ -6,6 +6,7 @@ from game.pnj import PNJ
 from game.items import ITEMS, ItemType
 from game.ui.dialog_box import DialogBox
 from ..quest_ui import draw_current_quest, QuestJournal
+from ..ui.health_display import HealthDisplay
 import game.quest_system as quest_system
 
 class GameScene(BaseScene):
@@ -19,6 +20,9 @@ class GameScene(BaseScene):
         
         # Initialiser le journal des quêtes
         self.quest_journal = QuestJournal(screen)
+        
+        # Initialiser l'affichage de la santé
+        self.health_display = HealthDisplay(screen)
         
         # Utilisation d'une police système avec taille de base
         self.base_font_size = 24
@@ -447,6 +451,10 @@ class GameScene(BaseScene):
             
             # Afficher le journal des quêtes s'il est visible
             self.quest_journal.render(quest_system)
+            
+            # Afficher le niveau de vie du joueur
+            if self.game_state.player:
+                self.health_display.render(self.game_state.player.hp)
             
             # Dessiner le message de victoire s'il est actif
             quest_system.draw_victory_message(screen)
