@@ -24,6 +24,10 @@ class MessageScene(BaseScene):
         self.inventory_timer = 0  # Timer pour l'inventaire
         self.in_defense_mode = False  # Pour suivre si on est dans le mode défense
         
+        # Initialisation du son de l'arme
+        self.weapon_sound = pygame.mixer.Sound("music/m16sound.mp3")
+        self.weapon_sound.set_volume(1)  # Volume à 80%
+        
         # Mise à jour du message initial avec les HP actuels si on est dans une zone de combat
         if message is not None and "zone de combat" in message.lower() and game_state.player:
             self.message = f"Vous êtes dans la zone de combat !\nPréparez vous\n\nVos HP: {game_state.player.hp}"
@@ -258,6 +262,9 @@ class MessageScene(BaseScene):
         print(f"HP Ennemi: {self.game_state.pnj2.hp}")
 
         if action == "Attaquer":
+            # Jouer le son de l'arme
+            self.weapon_sound.play()
+            
             self.is_defending = False  # Réinitialiser l'état de défense
             self.in_defense_mode = False  # Sortir du mode défense
             weapon = None
