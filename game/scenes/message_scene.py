@@ -10,6 +10,8 @@ class MessageScene(BaseScene):
         super().__init__(screen, game_state)
         self.screen = screen
         self.display_manager = display_manager
+        # Si le message est None, utiliser un message par défaut
+        self.message = message if message is not None else "Message non disponible"
         self.dialogue_getter = dialogue_getter
         self.combat_system = CombatSystem()
         self.combat_log = []
@@ -106,6 +108,14 @@ class MessageScene(BaseScene):
         self.text_font = pygame.font.SysFont("arial", text_size)
 
     def _wrap_text(self, text, font, max_width):
+        """
+        Découpe 'text' en plusieurs lignes pour ne pas dépasser 'max_width'.
+        Retourne (lines, total_height, max_line_width).
+        """
+        # S'assurer que le texte est une chaîne de caractères
+        if not isinstance(text, str):
+            text = str(text)
+            
         words = text.split()
         lines = []
         current_line = []

@@ -126,6 +126,11 @@ class GameScene(BaseScene):
                                 print("Arme (M16) ramassée - Mise à jour de la quête 2")
                                 quest_system.quest2_done = True
                                 quest_system.advance_quest_if_done()
+                            # Si c'est une potion qui est ramassée, mettre à jour la quête 3
+                            elif self.current_item.item_type.name == "POTION":
+                                print("Potion ramassée - Mise à jour de la quête 3")
+                                quest_system.quest3_done = True
+                                quest_system.advance_quest_if_done()
                         else:
                             print(f"DEBUG: Impossible d'ajouter {self.current_item.name} à l'inventaire (plein?)")
                             self.current_item.collected = False  # Remettre l'item comme non collecté
@@ -350,10 +355,11 @@ class GameScene(BaseScene):
             # Si le joueur entre dans la zone de combat et que le PNJ2 est visible
             if self.in_combat_zone and (not was_in_combat_zone or not self.combat_dialog_active):
                 print("DEBUG - Conditions pour afficher le message remplies")
-                self.game_state.temp_message = "Vous êtes dans la zone de combat !\n Préparez vous "
-                self.combat_dialog_active = True
-                print("DEBUG - Changement vers la scène de message")
-                return 'message'
+                if not self.game_state.temp_message:  # Vérifier si le message n'est pas déjà défini
+                    self.game_state.temp_message = "Vous êtes dans la zone de combat !\nPréparez vous !"
+                    self.combat_dialog_active = True
+                    print("DEBUG - Changement vers la scène de message")
+                    return 'message'
             # Si le joueur sort de la zone de combat
             elif not self.in_combat_zone and was_in_combat_zone:
                 print("DEBUG - Le joueur sort de la zone de combat")

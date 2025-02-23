@@ -9,7 +9,7 @@ quest1_done = False
 # Quête 2 : À mettre à True une fois les conditions de la deuxième quête remplies
 quest2_done = False
 
-# Quête 3 : À mettre à True une fois les conditions de la troisième quête remplies
+# Quête 3 : Devient True quand la potion est ramassée
 quest3_done = False
 
 # Quête 4 : À mettre à True une fois les conditions de la quatrième quête remplies
@@ -94,6 +94,7 @@ def advance_quest_if_done():
     print(f"État des quêtes:")
     print(f"- quest1_done: {quest1_done}")
     print(f"- quest2_done: {quest2_done}")
+    print(f"- quest3_done: {quest3_done}")
     print(f"- quest4_done: {quest4_done}")
     print(f"Index de quête actuel: {current_quest_index}")
     print(f"Game scene présente: {_game_scene is not None}")
@@ -102,6 +103,9 @@ def advance_quest_if_done():
         current_quest_index = 2
         print("→ Progression: Passage à la quête 2")
     elif quest2_done and current_quest_index == 2:
+        current_quest_index = 3
+        print("→ Progression: Passage à la quête 3")
+    elif quest3_done and current_quest_index == 3:
         current_quest_index = 4
         print("→ Progression: Passage à la quête 4")
     elif quest4_done and current_quest_index == 4:
