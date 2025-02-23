@@ -52,6 +52,8 @@ class CombatSystem:
     @staticmethod
     def attack(attacker, defender, weapon: Optional[Item], defense_mode: bool = False) -> Tuple[int, bool]:
         """Effectue une attaque en prenant en compte la race de l'attaquant"""
+        print(f"DEBUG - Combat - HP avant attaque - Attaquant: {attacker.hp}/{attacker.max_hp}, Défenseur: {defender.hp}/{defender.max_hp}")
+        
         attacker_race = attacker.race if hasattr(attacker, 'race') else None
         damage = CombatSystem.calculate_damage(
             attacker.stats if isinstance(attacker, Enemy) else attacker.race_stats,
@@ -62,9 +64,11 @@ class CombatSystem:
         if defense_mode:
             # Réduit les dégâts de 95% en mode défense
             damage = math.ceil(damage * 0.05)
+            print(f"DEBUG - Combat - Dégâts réduits en mode défense: {damage}")
         
         # Applique les dégâts
-        defender.hp -= damage
-        defender.hp = max(0, defender.hp)  # Empêche les HP négatifs
+        old_hp = defender.hp
+        defender.hp = max(0, defender.hp - damage)
+        print(f"DEBUG - Combat - Dégâts infligés: {damage} - HP défenseur: {old_hp} -> {defender.hp}")
         
         return damage, defender.hp <= 0 

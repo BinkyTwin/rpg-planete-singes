@@ -333,7 +333,13 @@ class GameScene(BaseScene):
             # Utiliser directement les coordonnées en tuiles du joueur
             player_pos = (self.game_state.player.x, self.game_state.player.y)
             was_in_combat_zone = self.in_combat_zone
-            self.in_combat_zone = player_pos in self.combat_zone_positions
+            
+            # Ne vérifier la zone de combat que si le PNJ2 est visible
+            if hasattr(self.game_state, 'pnj2') and self.game_state.pnj2.is_visible:
+                self.in_combat_zone = player_pos in self.combat_zone_positions
+            else:
+                self.in_combat_zone = False
+                self.combat_dialog_active = False
             
             print(f"DEBUG - Position du joueur: {player_pos}")
             print(f"DEBUG - Dans la zone de combat: {self.in_combat_zone}")
@@ -341,7 +347,7 @@ class GameScene(BaseScene):
             print(f"DEBUG - Était dans la zone: {was_in_combat_zone}")
             print(f"DEBUG - Positions de la zone de combat: {self.combat_zone_positions}")
             
-            # Si le joueur entre dans la zone de combat
+            # Si le joueur entre dans la zone de combat et que le PNJ2 est visible
             if self.in_combat_zone and (not was_in_combat_zone or not self.combat_dialog_active):
                 print("DEBUG - Conditions pour afficher le message remplies")
                 self.game_state.temp_message = "Vous êtes dans la zone de combat !\n Préparez vous "
