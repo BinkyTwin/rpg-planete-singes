@@ -49,22 +49,46 @@ class CombatSystem:
             
         return int(base_damage)
 
-    @staticmethod
-    def attack(attacker, defender, weapon: Optional[Item], defense_mode: bool = False) -> Tuple[int, bool]:
-        """Effectue une attaque en prenant en compte la race de l'attaquant"""
-        attacker_race = attacker.race if hasattr(attacker, 'race') else None
-        damage = CombatSystem.calculate_damage(
-            attacker.stats if isinstance(attacker, Enemy) else attacker.race_stats,
-            weapon,
-            attacker_race
-        )
+    def attack(self, attacker, defender, weapon: Optional[Item] = None, is_defending: bool = False, damage_reduction: float = 0.0) -> Tuple[int, bool]:
+        """
+        Gère une attaque entre deux entités
+        :param attacker: L'entité qui attaque
+        :param defender: L'entité qui défend
+        :param weapon: L'arme utilisée (optionnelle)
+        :param is_defending: Si le défenseur est en position défensive
+        :param damage_reduction: Pourcentage de réduction des dégâts (0.0 à 1.0)
+        :return: (dégâts infligés, True si la cible est morte)
+        """
+        # Dégâts de base
+        base_damage = 10  # Dégâts à mains nues
         
-        if defense_mode:
-            # Réduit les dégâts de 95% en mode défense
-            damage = math.ceil(damage * 0.05)
+        # Si une arme est équipée, utiliser ses dégâts
+        if weapon and weapon.item_type == ItemType.WEAPON:
+            base_damage = weapon.value
+            
+            # Appliquer les bonus de race si disponibles
+            if hasattr(attacker, 'race') and attacker.race in self.WEAPON_RACE_BONUS:
+                weapon_bonuses = self.WEAPON_RACE_BONUS[attacker.race]
+                if weapon.name.lower() in weapon_bonuses:
+                    base_damage *= weapon_bonuses[weapon.name.lower()]
         
-        # Applique les dégâts
-        defender.hp -= damage
-        defender.hp = max(0, defender.hp)  # Empêche les HP négatifs
+        # Calculer les dégâts finaux
+        final_damage = base_damage
         
-        return damage, defender.hp <= 0 
+        # Appliquer la réduction de dégâts si en défense
+        if is_defending:
+            if damage_reduction > 0:
+                final_damage *= (1 - damage_reduction)  # Réduction spécifiée (ex: 0.95 = 5% des dégâts)
+            else:
+                final_damage *= 0.5  # Réduction par défaut de 50%
+        
+        # Arrondir les dégâts
+        final_damage = max(1, round(final_damage))  # Au moins 1 point de dégâts
+        
+        # Appliquer les dégâts
+        defender.hp = max(0, defender.hp - final_damage)
+        
+        # Vérifier si la cible est morte
+        is_dead = defender.hp <= 0
+        
+        return final_damage, is_dead 

@@ -20,8 +20,8 @@ class HealthDisplay:
         if not hasattr(self, 'heart_image'):
             return
             
-        # Préparer le texte HP
-        hp_text = str(player_hp)
+        # Préparer le texte HP (uniquement la valeur actuelle)
+        hp_text = str(player_hp)  # On affiche uniquement la valeur actuelle
         text_surface = self.font.render(hp_text, True, (255, 255, 255))
         
         # Calculer la largeur totale (cœur + espace + texte)
