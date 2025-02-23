@@ -46,7 +46,10 @@ class GameScene(BaseScene):
         self.pnj = PNJ(position=(20, 27))
         if self.game_state.player:
             self.pnj.sync_faction(self.game_state.player)
+        
+        # Initialisation du PNJ2 et ajout au game_state
         self.pnj2 = PNJ2(position=(14, 10))
+        self.game_state.pnj2 = self.pnj2  # Ajout du PNJ2 au game_state
         if self.game_state.player:
             self.pnj2.sync_faction(self.game_state.player)
         
@@ -291,7 +294,7 @@ class GameScene(BaseScene):
             # Si le joueur entre dans la zone de combat
             if self.in_combat_zone and (not was_in_combat_zone or not self.combat_dialog_active):
                 print("DEBUG - Conditions pour afficher le message remplies")
-                self.game_state.temp_message = "⚔ Vous êtes dans la zone de combat !\nCliquez sur 'Quitter' pour fermer ce message."
+                self.game_state.temp_message = "Vous êtes dans la zone de combat !\n Préparez vous "
                 self.combat_dialog_active = True
                 print("DEBUG - Changement vers la scène de message")
                 return 'message'

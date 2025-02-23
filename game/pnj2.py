@@ -19,6 +19,17 @@ class PNJ2(PNJ):
         # Désactivation du système de dialogue
         self.dialogue_system = None
         self.is_in_dialogue = False
+        
+        # Statistiques de combat du gorille
+        self.race = 'gorille'
+        self.hp = 100  # Points de vie initiaux
+        self.max_hp = 100  # Points de vie maximum
+        self.race_stats = {
+            'force': 15,      # Force élevée pour le gorille
+            'agilite': 8,     # Agilité moyenne
+            'intelligence': 5  # Intelligence plus faible
+        }
+        
         # S'assurer que la direction est initialisée
         self.current_direction = "down"
         print(f"PNJ2 initialisé à la position ({self.tile_x}, {self.tile_y})")
