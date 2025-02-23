@@ -5,7 +5,7 @@ from game.tiled_map import TiledMap
 from game.pnj import PNJ
 from game.items import ITEMS, ItemType
 from game.ui.dialog_box import DialogBox
-from ..quest_ui import draw_current_quest
+from ..quest_ui import draw_current_quest, QuestJournal
 import game.quest_system as quest_system
 
 class GameScene(BaseScene):
@@ -16,6 +16,9 @@ class GameScene(BaseScene):
         
         # Enregistrer cette scène dans le système de quêtes pour les messages
         quest_system.set_game_scene(self)
+        
+        # Initialiser le journal des quêtes
+        self.quest_journal = QuestJournal(screen)
         
         # Utilisation d'une police système avec taille de base
         self.base_font_size = 24
@@ -109,6 +112,10 @@ class GameScene(BaseScene):
         if event.type == pygame.KEYDOWN:
             print(f"DEBUG: Appui sur la touche {event.key}")
             if event.key == pygame.K_ESCAPE:
+                # Si le journal des quêtes est visible, le fermer
+                if self.quest_journal.visible:
+                    self.quest_journal.hide()
+                    return None
                 return 'menu'
             # Gestion du dialogue avec le PNJ
             elif event.key == pygame.K_e:
@@ -126,6 +133,9 @@ class GameScene(BaseScene):
                 message = self.pnj.next_message()
                 if message:
                     print(f"PNJ dit : {message}")
+            # Gestion du journal des quêtes avec la touche J
+            elif event.key == pygame.K_j:
+                self.quest_journal.toggle()
             # Gestion du mouvement du joueur
             elif event.key in [pygame.K_z, pygame.K_s, pygame.K_q, pygame.K_d]:
                 self.handle_player_movement(event.key)
@@ -434,6 +444,9 @@ class GameScene(BaseScene):
 
             # Dessiner le rectangle de quête en dernier pour qu'il soit au-dessus de tout
             draw_current_quest(screen, quest_system.current_quest_index)
+            
+            # Afficher le journal des quêtes s'il est visible
+            self.quest_journal.render(quest_system)
             
             # Dessiner le message de victoire s'il est actif
             quest_system.draw_victory_message(screen)
