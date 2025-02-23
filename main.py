@@ -59,7 +59,12 @@ class Game:
                 'menu': MenuScene(self.display_manager.screen, self.game_state, self.display_manager),
                 'game': GameScene(self.display_manager.screen, self.game_state, self.display_manager),
                 'character_creation': CharacterCreationScene(self.display_manager.screen, self.game_state, self.display_manager),
-                'message': lambda: MessageScene(self.display_manager.screen, self.game_state, self.game_state.temp_message, self.display_manager)
+                'message': lambda: MessageScene(
+                    self.display_manager.screen,
+                    self.game_state,
+                    self.game_state.temp_message,
+                    self.display_manager
+                )
             }
             self.current_scene = 'menu'
             print("Scènes chargées avec succès", flush=True)
@@ -138,7 +143,15 @@ class Game:
             if callable(scene):
                 self.scenes[self.current_scene] = scene()
                 scene = self.scenes[self.current_scene]
-            scene.update()
+            
+            # Récupérer le résultat de la mise à jour
+            new_scene = scene.update()
+            
+            # Si la scène demande un changement
+            if new_scene and new_scene in self.scenes:
+                print(f"DEBUG - Changement de scène: {self.current_scene} -> {new_scene}")
+                self.current_scene = new_scene
+                return
             
             if hasattr(scene, 'player'):
                 move_vector = self.handle_input()

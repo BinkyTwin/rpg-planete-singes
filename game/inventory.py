@@ -56,6 +56,12 @@ class Inventory:
                 self.equipped_item = None
         return self.equipped_item
 
+    def get_equipped_weapon(self) -> Optional[Item]:
+        """Retourne l'arme équipée si elle existe et est de type WEAPON"""
+        if self.equipped_item and self.equipped_item.item_type == ItemType.WEAPON:
+            return self.equipped_item
+        return None
+
     def get_items(self) -> List[Item]:
         """Retourne la liste des items dans l'inventaire"""
         return self.items
@@ -71,3 +77,4 @@ class Inventory:
     def clear(self):
         """Vide l'inventaire"""
         self.items.clear()
+        self.equipped_item = None

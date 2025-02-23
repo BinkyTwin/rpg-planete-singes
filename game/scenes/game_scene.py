@@ -3,6 +3,7 @@ import os
 from .base_scene import BaseScene
 from game.tiled_map import TiledMap
 from game.pnj import PNJ
+from game.pnj2 import PNJ2
 from game.items import ITEMS, ItemType
 from game.ui.dialog_box import DialogBox
 from ..quest_ui import draw_current_quest, QuestJournal
@@ -62,6 +63,12 @@ class GameScene(BaseScene):
         if self.game_state.player:
             self.pnj.sync_faction(self.game_state.player)
         
+        # Initialisation du PNJ2 et ajout au game_state
+        self.pnj2 = PNJ2(position=(14, 10))
+        self.game_state.pnj2 = self.pnj2  # Ajout du PNJ2 au game_state
+        if self.game_state.player:
+            self.pnj2.sync_faction(self.game_state.player)
+        
         # Variables pour l'animation
         self.animation_frame = 0
         self.animation_timer = 0
@@ -75,6 +82,14 @@ class GameScene(BaseScene):
         # Variables pour la boîte de dialogue
         self.dialog_box = None
         self.current_item = None
+        
+        # Zone de combat
+        self.combat_zone_positions = {
+            (14, 9), (14, 11), (13, 10), (15, 10),
+            (13, 9), (15, 9), (13, 11), (15, 11)
+        }
+        self.in_combat_zone = False
+        self.combat_dialog_active = False
 
     def update_fonts(self):
         """Met à jour les polices en fonction de l'échelle"""
@@ -313,6 +328,32 @@ class GameScene(BaseScene):
             if item.is_animating:
                 item.update_animation()
 
+        # Vérifier si le joueur est dans la zone de combat
+        if self.game_state.player:
+            # Utiliser directement les coordonnées en tuiles du joueur
+            player_pos = (self.game_state.player.x, self.game_state.player.y)
+            was_in_combat_zone = self.in_combat_zone
+            self.in_combat_zone = player_pos in self.combat_zone_positions
+            
+            print(f"DEBUG - Position du joueur: {player_pos}")
+            print(f"DEBUG - Dans la zone de combat: {self.in_combat_zone}")
+            print(f"DEBUG - Combat dialog active: {self.combat_dialog_active}")
+            print(f"DEBUG - Était dans la zone: {was_in_combat_zone}")
+            print(f"DEBUG - Positions de la zone de combat: {self.combat_zone_positions}")
+            
+            # Si le joueur entre dans la zone de combat
+            if self.in_combat_zone and (not was_in_combat_zone or not self.combat_dialog_active):
+                print("DEBUG - Conditions pour afficher le message remplies")
+                self.game_state.temp_message = "Vous êtes dans la zone de combat !\n Préparez vous "
+                self.combat_dialog_active = True
+                print("DEBUG - Changement vers la scène de message")
+                return 'message'
+            # Si le joueur sort de la zone de combat
+            elif not self.in_combat_zone and was_in_combat_zone:
+                print("DEBUG - Le joueur sort de la zone de combat")
+                self.combat_dialog_active = False
+                self.game_state.temp_message = None
+
         """Met à jour l'état du jeu"""
         if self.game_state.player:
             # Debug: Position actuelle
@@ -339,16 +380,19 @@ class GameScene(BaseScene):
             # Mise à jour de la position de la caméra
             self.camera_x = -self.game_state.player.x * self.tiled_map.tile_size + self.screen.get_width() // 2
             self.camera_y = -self.game_state.player.y * self.tiled_map.tile_size + self.screen.get_height() // 2
+            # Mettre à jour l'animation du PNJ2
+            if hasattr(self, 'pnj2') and self.pnj2.is_visible:
+                self.pnj2.animation_frame = (self.pnj2.animation_frame + 1) % 4
 
         # Vérifier l'interaction avec le PNJ
-        if self.game_state.player and self.pnj.is_visible:
-            if self.pnj.can_trigger_dialogue(self.game_state.player):
-                # Si le dialogue n'est pas encore actif et que le joueur appuie sur E, démarrer le dialogue.
-                keys = pygame.key.get_pressed()
-                if keys[pygame.K_e] and not self.pnj.dialogue_system.is_dialogue_active:
-                    message = self.pnj.start_dialogue()
-                    if message:
-                        print(f"PNJ dit : {message}")
+        if self.game_state.player:
+            # Mise à jour du PNJ1
+            if self.pnj.is_visible:
+                self.pnj.can_trigger_dialogue(self.game_state.player)
+                
+            # Mise à jour du PNJ2
+            if hasattr(self, 'pnj2') and self.pnj2.is_visible:
+                self.pnj2.can_trigger_dialogue(self.game_state.player)
 
     def update_camera(self):
         """Met à jour la position de la caméra pour suivre le joueur"""
@@ -374,7 +418,7 @@ class GameScene(BaseScene):
         """Rendu de la scène de jeu"""
         print("=== DEBUG: Rendu de la scène de jeu ===")
         # Effacer l'écran
-        screen.fill((0, 0, 0))
+        #screen.fill((0, 0, 0))
         
         if self.tiled_map and self.game_state.player:
             # Mettre à jour la position de la caméra
@@ -436,6 +480,21 @@ class GameScene(BaseScene):
             # Afficher le PNJ s'il est visible
             if self.pnj.is_visible:
                 self.pnj.render(screen, self.camera_x, self.camera_y)
+            # Debug: Affichage du second PNJ
+            if hasattr(self, 'pnj2') and self.pnj2.is_visible:
+                print("DEBUG: Affichage du PNJ2")
+                # Calculer la position de rendu attendue pour PNJ2
+                if hasattr(self.pnj2, 'position'):
+                    coords = self.pnj2.position
+                elif hasattr(self.pnj2, 'x') and hasattr(self.pnj2, 'y'):
+                    coords = (self.pnj2.x, self.pnj2.y)
+                else:
+                    coords = (0, 0)
+
+                pnj2_screen_x = coords[0] * self.tiled_map.tile_size - self.camera_x
+                pnj2_screen_y = coords[1] * self.tiled_map.tile_size - self.camera_y
+                print(f"DEBUG: PNJ2 position de rendu attendue: ({pnj2_screen_x}, {pnj2_screen_y})")
+                self.pnj2.render(screen, self.camera_x, self.camera_y)
 
             # Afficher le message directif si le joueur est proche du PNJ
             if self.pnj and self.pnj.is_visible and self.game_state.player and self.pnj.can_trigger_dialogue(self.game_state.player):

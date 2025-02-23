@@ -10,35 +10,40 @@ class Player:
             'force': 6,
             'intelligence': 7,
             'furtivite': 6,
-            'diplomatie': 8
+            'diplomatie': 8,
+            'hp_max': 100
         },
         'gorille': {
             'agilite': 5,
-            'force': 9,
+            'force': 8,
             'intelligence': 6,
             'furtivite': 4,
-            'diplomatie': 5
+            'diplomatie': 5,
+            'hp_max': 100
         },
         'orang outan': {
             'agilite': 6,
             'force': 7,
             'intelligence': 9,
             'furtivite': 5,
-            'diplomatie': 7
+            'diplomatie': 7,
+            'hp_max': 100
         },
         'bonobo': {
             'agilite': 7,
-            'force': 5,
+            'force': 6,
             'intelligence': 7,
             'furtivite': 9,
-            'diplomatie': 9
+            'diplomatie': 9,
+            'hp_max': 100  
         },
         'singe hurleur': {
             'agilite': 8,
             'force': 6,
             'intelligence': 6,
             'furtivite': 7,
-            'diplomatie': 6
+            'diplomatie': 6,
+            'hp_max': 100
         }
     }
     FACTIONS = {
@@ -89,7 +94,7 @@ class Player:
         self.inventory = Inventory()
 
         # Rectangle de collision
-        self.rect = pygame.Rect(x * self.tile_size, y * self.tile_size, self.tile_size, self.tile_size)  # Rectangle de 32x32 pixels pour le joueur
+        self.rect = pygame.Rect(x * self.tile_size, y * self.tile_size, self.tile_size, self.tile_size)
         
         # Image par défaut (un carré coloré en attendant les sprites)
         self.image = pygame.Surface((32, 32))
@@ -263,3 +268,19 @@ class Player:
     def get_relation_with(self, other_faction: FactionName):
         """Retourne la relation entre la faction du joueur et une autre faction"""
         return self.faction_obj.get_relation(other_faction)
+
+    def heal(self, amount: int) -> int:
+        """Soigne le joueur d'un certain montant et retourne le montant réel soigné"""
+        old_hp = self.hp
+        self.hp = min(self.hp + amount, self.max_hp)
+        return self.hp - old_hp
+
+    def take_damage(self, amount: int) -> int:
+        """Inflige des dégâts au joueur et retourne le montant réel des dégâts"""
+        old_hp = self.hp
+        self.hp = max(0, self.hp - amount)
+        return old_hp - self.hp
+
+    def is_alive(self) -> bool:
+        """Vérifie si le joueur est en vie"""
+        return self.hp > 0
