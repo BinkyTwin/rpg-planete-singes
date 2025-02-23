@@ -1,10 +1,12 @@
 import pygame
 
 class DialogBox:
-    def __init__(self, screen, message, font_size=24):
+    def __init__(self, screen, message, font_size=24, stats_text=None):
         self.screen = screen
         self.message = message
-        self.font = pygame.font.SysFont("arial", font_size)
+        self.stats_text = stats_text
+        self.main_font = pygame.font.SysFont("arial", font_size)
+        self.stats_font = pygame.font.SysFont("arial", int(font_size * 0.8))  # Police plus petite pour les stats
         self.padding = 20
         self.button_padding = 10
         self.active = True
@@ -17,25 +19,33 @@ class DialogBox:
         # Couleurs
         self.bg_color = (50, 50, 50)
         self.text_color = (255, 255, 255)
+        self.stats_color = (200, 200, 200)  # Couleur légèrement différente pour les stats
         self.button_color = (100, 100, 100)
         self.button_hover_color = (150, 150, 150)
         self.button_text_color = (255, 255, 255)
         
         # Création des surfaces de texte
-        self.text_surface = self.font.render(message, True, self.text_color)
-        self.yes_text = self.font.render("Oui", True, self.button_text_color)
-        self.no_text = self.font.render("Non", True, self.button_text_color)
+        self.text_surface = self.main_font.render(message, True, self.text_color)
+        self.stats_surface = self.stats_font.render(stats_text, True, self.stats_color) if stats_text else None
+        self.yes_text = self.main_font.render("Oui", True, self.button_text_color)
+        self.no_text = self.main_font.render("Non", True, self.button_text_color)
         
         # Calcul des dimensions
-        self.width = max(300, self.text_surface.get_width() + self.padding * 2)
-        self.height = self.text_surface.get_height() + self.padding * 3 + self.yes_text.get_height()
+        text_width = max(self.text_surface.get_width(), 
+                        self.stats_surface.get_width() if self.stats_surface else 0)
+        self.width = max(300, text_width + self.padding * 2)
+        
+        # Hauteur totale incluant le texte principal, les stats et les boutons
+        self.height = (self.text_surface.get_height() + 
+                      (self.stats_surface.get_height() + 10 if self.stats_surface else 0) +
+                      self.padding * 3 + self.yes_text.get_height())
         
         # Position de la boîte
         self.x = (screen.get_width() - self.width) // 2
         self.y = (screen.get_height() - self.height) // 2
         
         # Création des rectangles pour les boutons
-        button_y = self.y + self.text_surface.get_height() + self.padding * 2
+        button_y = self.y + self.height - self.yes_text.get_height() - self.padding
         button_width = 80
         gap = 20
         
@@ -95,10 +105,16 @@ class DialogBox:
         # Dessiner la boîte de dialogue
         pygame.draw.rect(self.screen, self.bg_color, (self.x, self.y, self.width, self.height))
         
-        # Dessiner le texte
+        # Dessiner le texte principal
         text_x = self.x + (self.width - self.text_surface.get_width()) // 2
         text_y = self.y + self.padding
         self.screen.blit(self.text_surface, (text_x, text_y))
+        
+        # Dessiner les stats si présentes
+        if self.stats_surface:
+            stats_x = self.x + (self.width - self.stats_surface.get_width()) // 2
+            stats_y = text_y + self.text_surface.get_height() + 10
+            self.screen.blit(self.stats_surface, (stats_x, stats_y))
         
         # Dessiner les boutons avec bordures
         mouse_pos = pygame.mouse.get_pos()

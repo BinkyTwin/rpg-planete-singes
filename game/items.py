@@ -1,5 +1,7 @@
 from enum import Enum
 import logging
+from typing import Tuple, Callable, Optional
+from .animations import FadeOutAnimation
 
 class ItemType(Enum):
     WEAPON = "weapon"
@@ -12,7 +14,7 @@ class Item:
         self.name = name
         self.item_type = item_type
         self.description = description
-        self.value = value  # Dégâts pour WEAPON, bonus HP pour ARMOR, restauration HP pour POTION
+        self.value = value
 
     def __str__(self):
         if self.item_type == ItemType.WEAPON:
@@ -21,78 +23,93 @@ class Item:
             return f"{self.name} (Bonus HP: +{self.value})"
         elif self.item_type == ItemType.POTION:
             return f"{self.name} (Restaure {self.value} HP)"
+        return f"{self.name}"
 
-class M16(Item):
-    def __init__(self, name, position, image_path):
-        super().__init__(name, ItemType.WEAPON, "Un fusil d'assaut puissant et précis", 25)
+class CollectibleItem(Item):
+    """Classe de base pour tous les items collectibles sur la carte"""
+    def __init__(self, name: str, item_type: ItemType, description: str, value: int, 
+                 position: Tuple[int, int], image_path: str):
+        super().__init__(name, item_type, description, value)
         self.position = position
         self.image_path = image_path
         self.collected = False
+        self.animation = None
+        self.is_animating = False
 
     def show(self):
-        # Afficher l'item sur la map (simulation via logging)
+        """Affiche l'item sur la carte"""
         logging.info(f"Displaying {self.name} at position {self.position} using icon {self.image_path}")
 
-    def interact(self, player_position, key_pressed, confirmation_callback):
+    def interact(self, player_position: Tuple[int, int], key_pressed: str, 
+                confirmation_callback: Callable[[], bool]) -> Optional[bool]:
         """
-        Détecte l'interaction du joueur avec l'item.
-        Si le joueur est sur la même position et appuie sur 'E', la fonction de confirmation est appelée.
-        Si la confirmation renvoie True, l'item est marqué comme collecté.
+        Gère l'interaction avec l'item.
+        
+        Args:
+            player_position: Position actuelle du joueur
+            key_pressed: Touche pressée par le joueur
+            confirmation_callback: Fonction appelée pour confirmer la collecte
+            
+        Returns:
+            bool ou None: True si collecté, False si refusé, None si pas d'interaction
         """
         if self.position == player_position and key_pressed.upper() == "E":
-            logging.info("Interaction with item %s initiated", self.name)
+            logging.info(f"Interaction with item {self.name} initiated")
             confirmed = confirmation_callback()
             if confirmed:
-                self.collected = True
-                logging.info("Item %s collected.", self.name)
+                # Démarrer l'animation de collecte
+                self.animation = FadeOutAnimation(duration_ms=500)
+                self.animation.start()
+                self.is_animating = True
+                logging.info(f"Item {self.name} collection animation started")
             else:
-                logging.info("Item %s remains on map.", self.name)
+                logging.info(f"Item {self.name} remains on map")
             return confirmed
         return None
 
+    def update_animation(self):
+        """Met à jour l'animation de l'item"""
+        if self.is_animating and self.animation:
+            self.animation.update()
+            if self.animation.is_finished:
+                self.collected = True
+                self.is_animating = False
+                logging.info(f"Item {self.name} collection animation finished")
 
-def example_integration():
+def create_collectible_item(name: str, item_type: ItemType, description: str, value: int,
+                          position: Tuple[int, int], image_path: str) -> CollectibleItem:
     """
-    Exemple d'intégration de la logique de l'item M16 dans une scène de jeu.
-    Simule la présence du joueur sur la même tuile et son interaction via la touche 'E'.
+    Factory function pour créer des items collectibles.
+    Cette fonction permet de créer facilement de nouveaux items sans créer de nouvelles classes.
     """
-    # Position du joueur simulée
-    player_position = (5, 17)
+    return CollectibleItem(name, item_type, description, value, position, image_path)
 
-    # Création de l'item M16
-    m16 = M16("M16", (5, 17), "assets/tilesets/images/items/M16_full.png")
-    m16.show()
-
-    # Simuler l'appui sur la touche 'E'
-    key = "E"
-
-    # Fonction de confirmation simulée (ici, toujours 'oui')
-    def confirmation():
-        return True  
-
-    result = m16.interact(player_position, key, confirmation)
-    if result is True:
-        print("Item collected and added to inventory.")
-    elif result is False:
-        print("Item remains on map.")
-    else:
-        print("No interaction occurred.")
-
-
-# Objets prédéfinis avec leurs effets
+# Création des items via la factory
 ITEMS = {
-    # Armes (value = dégâts)
+    # Items collectibles sur la carte
+    "m16": create_collectible_item(
+        "M16",
+        ItemType.WEAPON,
+        "Un fusil d'assaut puissant et précis",
+        25,
+        (5, 17),
+        "assets/tilesets/images/items/M16_full.png"
+    ),
+    "banane": create_collectible_item(
+        "Banane",
+        ItemType.POTION,
+        "Une banane bien mûre qui restaure de la santé",
+        20,
+        (9, 12),
+        "assets/tilesets/images/items/Banana.png"
+    ),
+    
+    # Items standards (non collectibles sur la carte)
     "épée_rouillée": Item(
         "Épée rouillée", 
         ItemType.WEAPON, 
         "Une vieille épée usée mais qui peut encore faire mal", 
         15
-    ),
-    "m4": Item(
-        "M4", 
-        ItemType.WEAPON, 
-        "Un fusil d'assaut puissant et précis", 
-        25
     ),
     "glock": Item(
         "Glock", 
@@ -100,39 +117,61 @@ ITEMS = {
         "Un pistolet fiable et efficace", 
         20
     ),
-    
-    # Armures (value = bonus HP)
-    "armure_cuir": Item(
-        "Armure en cuir", 
-        ItemType.ARMOR, 
-        "Une protection basique mais efficace", 
-        20
-    ),
-    "gilet_pare_balles": Item(
-        "Gilet pare-balles", 
-        ItemType.ARMOR, 
-        "Une protection moderne contre les projectiles", 
-        35
-    ),
-    
-    # Potions (value = HP restaurés)
-    "banane": Item(
-        "Banane", 
-        ItemType.POTION, 
-        "Une banane bien mûre qui restaure des points de vie", 
-        20
-    ),
     "banane_plantin": Item(
         "Banane plantin", 
         ItemType.POTION, 
-        "Une banane plantin rare et nourrissante", 
+        "Une banane plantin qui restaure beaucoup de points de vie", 
         30
-    ),
-    "m16": M16("M16", (5, 17), "assets/tilesets/images/items/M16_full.png")
-} 
+    )
+}
 
+def test_collectible_item():
+    """Tests unitaires pour la classe CollectibleItem"""
+    # Test 1: Création d'un item
+    item = create_collectible_item(
+        "Test Item",
+        ItemType.WEAPON,
+        "Test description",
+        10,
+        (1, 1),
+        "test/path.png"
+    )
+    
+    print("\n=== Tests de CollectibleItem ===")
+    
+    # Test des propriétés de base
+    assert item.name == "Test Item", "Nom incorrect"
+    assert item.item_type == ItemType.WEAPON, "Type incorrect"
+    assert item.value == 10, "Valeur incorrecte"
+    assert item.position == (1, 1), "Position incorrecte"
+    print("[OK] Test 1: Propriétés de base correctes")
+    
+    # Test de l'interaction
+    # Cas 1: Mauvaise position
+    result = item.interact((0, 0), "E", lambda: True)
+    assert result is None, "L'interaction ne devrait pas se produire à distance"
+    print("[OK] Test 2: Pas d'interaction à distance")
+    
+    # Cas 2: Bonne position, mauvaise touche
+    result = item.interact((1, 1), "A", lambda: True)
+    assert result is None, "L'interaction ne devrait pas se produire avec la mauvaise touche"
+    print("[OK] Test 3: Pas d'interaction avec la mauvaise touche")
+    
+    # Cas 3: Interaction réussie
+    result = item.interact((1, 1), "E", lambda: True)
+    assert result is True, "L'interaction devrait réussir"
+    assert item.collected is False, "L'item ne devrait pas être collecté"
+    print("[OK] Test 4: Interaction réussie")
+    
+    # Cas 4: Interaction refusée
+    item.collected = False
+    result = item.interact((1, 1), "E", lambda: False)
+    assert result is False, "L'interaction devrait être refusée"
+    assert item.collected is False, "L'item ne devrait pas être collecté"
+    print("[OK] Test 5: Interaction refusée")
+    
+    print("\nTous les tests ont réussi!")
 
-if __name__ == '__main__':
-    # Configurer le logging pour afficher les messages dans la console
+if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    example_integration()
+    test_collectible_item()
