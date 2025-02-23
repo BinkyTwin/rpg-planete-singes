@@ -1,5 +1,6 @@
 import pygame
 from game.pnj import PNJ
+from game.items import ITEMS
 
 class PNJ2(PNJ):
     """
@@ -11,6 +12,8 @@ class PNJ2(PNJ):
         super().__init__(position)
         # Modification du sprite pour utiliser le gorille
         self.sprite_name = 'gorille.png'
+        # Ajout de l'épée rouillée comme item décoratif
+        self.held_item = ITEMS["épée_rouillée"]
         # Rechargement des sprites avec le nouveau sprite_name
         self.sprites = self._load_sprite_sheet()
         # Désactivation du système de dialogue

@@ -63,6 +63,14 @@ class GameScene(BaseScene):
         # Variables pour la boîte de dialogue
         self.dialog_box = None
         self.current_item = None
+        
+        # Zone de combat
+        self.combat_zone_positions = {
+            (14, 9), (14, 11), (13, 10), (15, 10),
+            (13, 9), (15, 9), (13, 11), (15, 11)
+        }
+        self.in_combat_zone = False
+        self.combat_dialog_active = False
 
     def update_fonts(self):
         """Met à jour les polices en fonction de l'échelle"""
@@ -266,6 +274,32 @@ class GameScene(BaseScene):
             item = item_data['item']
             if item.is_animating:
                 item.update_animation()
+
+        # Vérifier si le joueur est dans la zone de combat
+        if self.game_state.player:
+            # Utiliser directement les coordonnées en tuiles du joueur
+            player_pos = (self.game_state.player.x, self.game_state.player.y)
+            was_in_combat_zone = self.in_combat_zone
+            self.in_combat_zone = player_pos in self.combat_zone_positions
+            
+            print(f"DEBUG - Position du joueur: {player_pos}")
+            print(f"DEBUG - Dans la zone de combat: {self.in_combat_zone}")
+            print(f"DEBUG - Combat dialog active: {self.combat_dialog_active}")
+            print(f"DEBUG - Était dans la zone: {was_in_combat_zone}")
+            print(f"DEBUG - Positions de la zone de combat: {self.combat_zone_positions}")
+            
+            # Si le joueur entre dans la zone de combat
+            if self.in_combat_zone and (not was_in_combat_zone or not self.combat_dialog_active):
+                print("DEBUG - Conditions pour afficher le message remplies")
+                self.game_state.temp_message = "⚔ Vous êtes dans la zone de combat !\nCliquez sur 'Quitter' pour fermer ce message."
+                self.combat_dialog_active = True
+                print("DEBUG - Changement vers la scène de message")
+                return 'message'
+            # Si le joueur sort de la zone de combat
+            elif not self.in_combat_zone and was_in_combat_zone:
+                print("DEBUG - Le joueur sort de la zone de combat")
+                self.combat_dialog_active = False
+                self.game_state.temp_message = None
 
         # Mettre à jour l'animation si le joueur se déplace
         current_time = pygame.time.get_ticks()
