@@ -10,6 +10,10 @@ class DialogBox:
         self.active = True
         self.result = None
         
+        # Délai de protection pour éviter la fermeture immédiate
+        self.creation_time = pygame.time.get_ticks()
+        self.protection_delay = 300  # 300ms de délai avant de pouvoir fermer
+        
         # Couleurs
         self.bg_color = (50, 50, 50)
         self.text_color = (255, 255, 255)
@@ -50,17 +54,29 @@ class DialogBox:
         )
 
     def handle_event(self, event):
-        """Gère les événements de la boîte de dialogue"""
-        if not self.active:
+        """
+        Gère les événements de la boîte de dialogue.
+        Retourne True si le dialogue doit être fermé.
+        """
+        print("\n=== DialogBox: handle_event ===")
+        print(f"Type d'événement reçu: {event.type}")
+        
+        # Vérifier si on est encore dans le délai de protection
+        current_time = pygame.time.get_ticks()
+        time_since_creation = current_time - self.creation_time
+        if time_since_creation < self.protection_delay:
+            print(f"→ Dans le délai de protection ({time_since_creation}ms < {self.protection_delay}ms)")
             return False
             
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             mouse_pos = event.pos
             if self.yes_button.collidepoint(mouse_pos):
+                print("→ Choix: Oui (Clic)")
                 self.result = True
                 self.active = False
                 return True
             elif self.no_button.collidepoint(mouse_pos):
+                print("→ Choix: Non (Clic)")
                 self.result = False
                 self.active = False
                 return True

@@ -3,6 +3,7 @@ from game.factions import Faction
 import os
 import math
 from game.dialogue_system import DialogueSystem
+import game.quest_system as quest_system
 
 class PNJ:
     # Distance en pixels à laquelle le dialogue peut être déclenché
@@ -96,6 +97,10 @@ class PNJ:
             self.remove_from_map()
             if self.map:
                 self.map.remove_pnj()
+            # Mettre à jour l'état de la quête quand le PNJ disparaît
+            quest_system.quest1_done = True
+            print("PNJ: Mise à jour quest1_done à True")
+            quest_system.advance_quest_if_done()  # Utiliser la référence du module
         return message
 
     def is_dialogue_finished(self):

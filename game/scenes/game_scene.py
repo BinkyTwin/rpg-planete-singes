@@ -5,12 +5,17 @@ from game.tiled_map import TiledMap
 from game.pnj import PNJ
 from game.items import ITEMS
 from game.ui.dialog_box import DialogBox
+from ..quest_ui import draw_current_quest
+import game.quest_system as quest_system
 
 class GameScene(BaseScene):
     def __init__(self, screen, game_state, display_manager=None):
         super().__init__(screen, game_state)
         self.screen = screen
         self.display_manager = display_manager
+        
+        # Enregistrer cette scène dans le système de quêtes pour les messages
+        quest_system.set_game_scene(self)
         
         # Utilisation d'une police système avec taille de base
         self.base_font_size = 24
@@ -73,15 +78,27 @@ class GameScene(BaseScene):
         self.title_font = pygame.font.SysFont("arial", title_size)
 
     def handle_event(self, event):
+        """Gère les événements du jeu"""
+        # Si le message de victoire est affiché, le gérer en priorité
+        if quest_system.handle_victory_event(event):
+            return
+            
         # Si une boîte de dialogue est active, la gérer en priorité
         if self.dialog_box and self.dialog_box.active:
             if self.dialog_box.handle_event(event):
+                print("→ Dialogue terminé, fermeture de la boîte")
                 # Si un choix a été fait
                 if self.current_item and self.dialog_box.result is not None:
                     if self.dialog_box.result:
                         self.current_item.collected = True
                         print(f"Item {self.current_item.name} collecté!")
-                        # TODO: Ajouter l'item à l'inventaire du joueur
+                        
+                        # Si c'est l'arme qui est ramassée, mettre à jour la quête 2
+                        if self.current_item.name in ["M16", "m16"]:  
+                            print("Arme (M16) ramassée - Mise à jour de la quête 2")
+                            quest_system.quest2_done = True
+                            quest_system.advance_quest_if_done()
+                        
                     else:
                         print(f"Item {self.current_item.name} laissé sur place.")
                 self.dialog_box = None
@@ -211,14 +228,32 @@ class GameScene(BaseScene):
         print(f"Après mouvement - Tuiles: ({self.game_state.player.x}, {self.game_state.player.y}), Pixels: ({self.game_state.player.rect.x}, {self.game_state.player.rect.y})")
 
     def update(self):
-        # Mettre à jour l'animation si le joueur se déplace
-        current_time = pygame.time.get_ticks()
-        if current_time - self.animation_timer >= self.animation_speed:
-            self.animation_timer = current_time
-            self.animation_frame = (self.animation_frame + 1) % 4
-            # Mettre à jour l'animation du PNJ
-            if self.pnj and self.pnj.is_visible:
-                self.pnj.animation_frame = (self.pnj.animation_frame + 1) % 4
+        """Met à jour l'état du jeu"""
+        if self.game_state.player:
+            # Debug: Position actuelle
+            print(f"\n=== Vérification position finale ===")
+            print(f"Position actuelle en tuiles: ({self.game_state.player.x}, {self.game_state.player.y})")
+            print(f"Quest4 done? {quest_system.quest4_done}")
+            
+            # Définir la zone de déclenchement de la quête finale
+            # Un ensemble de tuples (x,y) où la quête peut être validée
+            zone_finale = {(21,1), (22,1), (23,1), (24,1)}
+            
+ 
+            # Vérifier si le joueur est dans la zone finale
+            # et si la quête 4 n'est pas encore terminée
+            position_joueur = (int(self.game_state.player.x), int(self.game_state.player.y))
+            if position_joueur in zone_finale and not quest_system.quest4_done:
+                print(f"→ Position finale {position_joueur} détectée (zone valide: {zone_finale})!")
+                print("→ Première fois dans la zone finale")
+                quest_system.quest4_done = True
+                print("→ quest4_done mis à True")
+                quest_system.advance_quest_if_done()
+                print("→ advance_quest_if_done appelé")
+            
+            # Mise à jour de la position de la caméra
+            self.camera_x = -self.game_state.player.x * self.tiled_map.tile_size + self.screen.get_width() // 2
+            self.camera_y = -self.game_state.player.y * self.tiled_map.tile_size + self.screen.get_height() // 2
 
         # Vérifier l'interaction avec le PNJ
         if self.game_state.player and self.pnj.is_visible:
@@ -336,6 +371,12 @@ class GameScene(BaseScene):
             if self.dialog_box and self.dialog_box.active:
                 self.dialog_box.render()
 
+            # Dessiner le rectangle de quête en dernier pour qu'il soit au-dessus de tout
+            draw_current_quest(screen, quest_system.current_quest_index)
+            
+            # Dessiner le message de victoire s'il est actif
+            quest_system.draw_victory_message(screen)
+
     def test_coordinates(self):
         """Test du système de coordonnées"""
         # Coordonnées de test
@@ -386,3 +427,25 @@ class GameScene(BaseScene):
         screen_y = (grid_y * tile_size) + camera_y
         
         return screen_x, screen_y
+
+    def show_final_quest_message(self):
+        """Affiche le message de fin quand toutes les quêtes sont terminées"""
+        print("\n=== Affichage message final ===")
+        print(f"État actuel de la boîte de dialogue: {self.dialog_box}")
+        
+        message = (
+            "Félicitations ! Vous voici arrivé(e) à la tribu des Masqués.\n"
+            "Vous apercevez votre famille de loin. Approchez et libérez-les."
+        )
+        print("→ Création de la boîte de dialogue")
+        # Utiliser la même boîte de dialogue que pour les autres interactions
+        self.dialog_box = DialogBox(
+            message,
+            self.screen,
+            self.font,
+            is_choice_dialog=False  # Pas de choix, juste un message à fermer
+        )
+        print("→ Boîte de dialogue créée et active")
+        print("→ Appuyez sur Espace ou Échap pour fermer")
+        print("→ État final de la boîte de dialogue:", self.dialog_box is not None)
+        print("=====================================\n")
