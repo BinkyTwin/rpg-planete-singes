@@ -79,7 +79,8 @@ class Player:
         self.faction_obj = FACTIONS[faction]
 
         # points de vie du joueur
-        self.hp = 100
+        self.max_hp = 100  # Points de vie maximum
+        self.hp = self.max_hp  # Points de vie actuels
 
         # points d'expérience du joueur
         self.xp = 0

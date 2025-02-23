@@ -31,12 +31,10 @@ class Inventory:
 
     def equip_item(self, item: Item) -> bool:
         """
-        Équipe un item s'il est dans l'inventaire et équipable
+        Équipe un item s'il est dans l'inventaire
+        Pour les potions, elles sont équipées temporairement avant d'être consommées
         """
-        if item not in self.items:
-            return False
-        
-        if item.item_type not in [ItemType.WEAPON, ItemType.ARMOR]:
+        if item not in self.items and item.item_type != ItemType.POTION:
             return False
 
         self.equipped_item = item
@@ -49,7 +47,13 @@ class Inventory:
         return previous_item
 
     def get_equipped_item(self) -> Optional[Item]:
-        """Retourne l'item équipé"""
+        """
+        Retourne l'item équipé
+        Si une potion est équipée et qu'elle n'est plus dans l'inventaire, elle est déséquipée
+        """
+        if self.equipped_item and self.equipped_item.item_type == ItemType.POTION:
+            if self.equipped_item not in self.items:
+                self.equipped_item = None
         return self.equipped_item
 
     def get_items(self) -> List[Item]:

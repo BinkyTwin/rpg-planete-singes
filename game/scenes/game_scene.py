@@ -6,6 +6,8 @@ from game.pnj import PNJ
 from game.items import ITEMS, ItemType
 from game.ui.dialog_box import DialogBox
 from ..quest_ui import draw_current_quest, QuestJournal
+from ..ui.health_display import HealthDisplay
+from ..ui.inventory_display import InventoryDisplay
 import game.quest_system as quest_system
 
 class GameScene(BaseScene):
@@ -19,6 +21,12 @@ class GameScene(BaseScene):
         
         # Initialiser le journal des quêtes
         self.quest_journal = QuestJournal(screen)
+        
+        # Initialiser l'affichage de la santé
+        self.health_display = HealthDisplay(screen)
+        
+        # Initialiser l'affichage de l'inventaire
+        self.inventory_display = InventoryDisplay(screen)
         
         # Utilisation d'une police système avec taille de base
         self.base_font_size = 24
@@ -94,24 +102,36 @@ class GameScene(BaseScene):
                 if self.current_item and self.dialog_box.result is not None:
                     print(f"DEBUG: Résultat du dialogue: {self.dialog_box.result}")
                     if self.dialog_box.result:
-                        self.current_item.collected = True
-                        print(f"Item {self.current_item.name} collecté!")
-                        
-                        # Si c'est l'arme qui est ramassée, mettre à jour la quête 2
-                        if self.current_item.name in ["M16", "m16"]:  
-                            print("Arme (M16) ramassée - Mise à jour de la quête 2")
-                            quest_system.quest2_done = True
-                            quest_system.advance_quest_if_done()
-                        
+                        # Ajouter l'item à l'inventaire
+                        if self.add_item_to_inventory(self.current_item):
+                            print(f"Item {self.current_item.name} ajouté à l'inventaire!")
+                            
+                            # Si c'est l'arme qui est ramassée, mettre à jour la quête 2
+                            if self.current_item.name in ["M16", "m16"]:  
+                                print("Arme (M16) ramassée - Mise à jour de la quête 2")
+                                quest_system.quest2_done = True
+                                quest_system.advance_quest_if_done()
+                        else:
+                            print(f"DEBUG: Impossible d'ajouter {self.current_item.name} à l'inventaire (plein?)")
+                            self.current_item.collected = False  # Remettre l'item comme non collecté
                     else:
                         print(f"DEBUG: {self.current_item.name} laissé sur place.")
                 self.dialog_box = None
                 self.current_item = None
             return None
 
+        # Gestion des clics dans l'inventaire
+        if event.type == pygame.MOUSEBUTTONDOWN and self.inventory_display.visible:
+            if self.inventory_display.handle_click(event.pos, self.game_state.player.inventory, self.game_state.player):
+                return None  # Empêche la propagation de l'événement
+
         if event.type == pygame.KEYDOWN:
             print(f"DEBUG: Appui sur la touche {event.key}")
             if event.key == pygame.K_ESCAPE:
+                # Si l'inventaire est visible, le fermer
+                if self.inventory_display.visible:
+                    self.inventory_display.hide()
+                    return None
                 # Si le journal des quêtes est visible, le fermer
                 if self.quest_journal.visible:
                     self.quest_journal.hide()
@@ -136,6 +156,9 @@ class GameScene(BaseScene):
             # Gestion du journal des quêtes avec la touche J
             elif event.key == pygame.K_j:
                 self.quest_journal.toggle()
+            # Gestion de l'inventaire avec la touche I
+            elif event.key == pygame.K_i:
+                self.inventory_display.toggle()
             # Gestion du mouvement du joueur
             elif event.key in [pygame.K_z, pygame.K_s, pygame.K_q, pygame.K_d]:
                 self.handle_player_movement(event.key)
@@ -212,7 +235,7 @@ class GameScene(BaseScene):
         player_pos = (self.game_state.player.x, self.game_state.player.y)
         
         # Vérifier tous les items non collectés
-        for item_name, item_data in self.items.items():  
+        for item_name, item_data in list(self.items.items()):  
             item = item_data['item']
             if not item.collected and hasattr(item, 'position') and item.position == player_pos:
                 self.current_item = item
@@ -247,6 +270,11 @@ class GameScene(BaseScene):
             # Marquer l'item comme collecté
             item.collected = True
             print(f"DEBUG: Item {item.name} marqué comme collecté")
+            
+            # Forcer une mise à jour immédiate de l'affichage de l'inventaire
+            if self.inventory_display and self.inventory_display.visible:
+                self.inventory_display.needs_update = True
+            
             return True
         else:
             print("DEBUG: Inventaire plein!")
@@ -447,6 +475,14 @@ class GameScene(BaseScene):
             
             # Afficher le journal des quêtes s'il est visible
             self.quest_journal.render(quest_system)
+            
+            # Afficher l'inventaire s'il est visible
+            if self.game_state.player and hasattr(self.game_state.player, 'inventory'):
+                self.inventory_display.render(self.game_state.player.inventory)
+            
+            # Afficher le niveau de vie du joueur
+            if self.game_state.player:
+                self.health_display.render(self.game_state.player.hp)
             
             # Dessiner le message de victoire s'il est actif
             quest_system.draw_victory_message(screen)
