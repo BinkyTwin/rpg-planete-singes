@@ -4,6 +4,7 @@ import sys
 from .base_scene import BaseScene
 from game.combat_system import CombatSystem
 from game.ui.inventory_display import InventoryDisplay
+import game.quest_system as quest_system
 import random
 
 class MessageScene(BaseScene):
@@ -291,6 +292,11 @@ class MessageScene(BaseScene):
                     self.game_state.game_scene.combat_zone_positions = set()
                     self.game_state.game_scene.in_combat_zone = False
                     self.game_state.game_scene.combat_dialog_active = False
+                
+                # Mettre à jour la quête 4
+                quest_system.is_enemy_dead = True
+                quest_system.quest4_done = True
+                quest_system.advance_quest_if_done()
                 
                 # On remplace les 3 boutons par un seul "Continuer"
                 self.combat_buttons = []

@@ -11,6 +11,7 @@ from ..ui.health_display import HealthDisplay
 from ..ui.inventory_display import InventoryDisplay
 import game.quest_system as quest_system
 from ..database import GameDatabase
+import math
 
 class GameScene(BaseScene):
     def __init__(self, screen, game_state, display_manager=None):
@@ -396,11 +397,11 @@ class GameScene(BaseScene):
             # Vérifier si le joueur est dans la zone finale
             # et si la quête 4 n'est pas encore terminée
             position_joueur = (int(self.game_state.player.x), int(self.game_state.player.y))
-            if position_joueur in zone_finale and not quest_system.quest4_done:
+            if position_joueur in zone_finale and not quest_system.quest5_done:
                 print(f"→ Position finale {position_joueur} détectée (zone valide: {zone_finale})!")
                 print("→ Première fois dans la zone finale")
-                quest_system.quest4_done = True
-                print("→ quest4_done mis à True")
+                quest_system.quest5_done = True
+                print("→ quest5_done mis à True")
                 quest_system.advance_quest_if_done()
                 print("→ advance_quest_if_done appelé")
             
@@ -538,19 +539,59 @@ class GameScene(BaseScene):
                     # Créer une surface pour le texte du dialogue
                     text_surface = self.font.render(message, True, (255, 255, 255))
                     
-                    # Créer un fond semi-transparent
-                    padding = 20
-                    bg_surface = pygame.Surface((text_surface.get_width() + padding * 2, text_surface.get_height() + padding * 2))
-                    bg_surface.fill((0, 0, 0))
-                    bg_surface.set_alpha(192)
+                    # Dimensions du rectangle de dialogue
+                    padding = 25
+                    margin_bottom = 80  # Marge du bas de l'écran
+                    bubble_width = text_surface.get_width() + padding * 2
+                    bubble_height = text_surface.get_height() + padding * 2 + 30  # +30 pour le texte "Espace"
                     
-                    # Position du dialogue en bas de l'écran
-                    dialog_x = (screen.get_width() - bg_surface.get_width()) // 2
-                    dialog_y = screen.get_height() - bg_surface.get_height() - 20
+                    # Position du rectangle en bas de l'écran
+                    bubble_x = (screen.get_width() - bubble_width) // 2
+                    bubble_y = screen.get_height() - bubble_height - margin_bottom
                     
-                    # Afficher le fond et le texte
-                    screen.blit(bg_surface, (dialog_x, dialog_y))
-                    screen.blit(text_surface, (dialog_x + padding, dialog_y + padding))
+                    # Créer le rectangle principal avec dégradé
+                    bubble_surface = pygame.Surface((bubble_width, bubble_height))
+                    bubble_surface.fill((76, 89, 47))  # Vert mousse foncé
+                    bubble_surface.set_alpha(230)  # Plus opaque
+                    
+                    # Créer le rectangle de bordure intérieure
+                    inner_rect = pygame.Surface((bubble_width - 4, bubble_height - 4))
+                    inner_rect.fill((96, 108, 56))  # Vert mousse plus clair
+                    
+                    # Afficher les rectangles
+                    screen.blit(bubble_surface, (bubble_x, bubble_y))
+                    screen.blit(inner_rect, (bubble_x + 2, bubble_y + 2))
+                    
+                    # Dessiner les bordures avec un effet brillant
+                    pygame.draw.rect(screen, (128, 143, 86), 
+                                  pygame.Rect(bubble_x, bubble_y, bubble_width, bubble_height), 
+                                  2, border_radius=5)
+                    
+                    # Ajouter des décorations aux coins
+                    corner_size = 10
+                    corner_color = (153, 171, 104)  # Vert mousse clair pour les coins
+                    for corner in [(bubble_x, bubble_y), 
+                                (bubble_x + bubble_width - corner_size, bubble_y),
+                                (bubble_x, bubble_y + bubble_height - corner_size),
+                                (bubble_x + bubble_width - corner_size, bubble_y + bubble_height - corner_size)]:
+                        pygame.draw.rect(screen, corner_color, 
+                                      pygame.Rect(corner[0], corner[1], corner_size, corner_size))
+                    
+                    # Afficher le texte du dialogue
+                    text_x = bubble_x + padding
+                    text_y = bubble_y + padding
+                    screen.blit(text_surface, (text_x, text_y))
+                    
+                    # Ajouter l'indication "Espace" avec un style distinctif
+                    next_text = "ESPACE pour continuer..."
+                    next_surface = pygame.font.SysFont("arial", 16).render(next_text, True, (153, 171, 104))
+                    next_x = bubble_x + (bubble_width - next_surface.get_width()) // 2
+                    next_y = bubble_y + bubble_height - 30
+                    
+                    # Petit effet de pulsation pour le texte "Espace"
+                    alpha = int(230 + 75 * abs(math.sin(pygame.time.get_ticks() * 0.003)))
+                    next_surface.set_alpha(alpha)
+                    screen.blit(next_surface, (next_x, next_y))
 
             # Afficher la boîte de dialogue si elle est active
             if self.dialog_box and self.dialog_box.active:

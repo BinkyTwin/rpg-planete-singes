@@ -12,10 +12,13 @@ quest2_done = False
 # Quête 3 : Devient True quand la potion est ramassée
 quest3_done = False
 
-# Quête 4 : À mettre à True une fois les conditions de la quatrième quête remplies
+# Quête 4 : Devient True quand l'ennemi est mort
 quest4_done = False
 
-# Indique quelle quête est actuellement active (de 1 à 4)
+# Quête 5 : À mettre à True une fois arrivé au bout de la montagne
+quest5_done = False
+
+# Indique quelle quête est actuellement active (de 1 à 5)
 # À incrémenter manuellement quand une quête est terminée pour passer à la suivante
 current_quest_index = 1
 
@@ -25,6 +28,9 @@ _game_scene = None
 # Variable pour le message de victoire
 victory_message = None
 victory_font = None
+
+# Variable pour suivre si l'ennemi est mort
+is_enemy_dead = False
 
 def set_game_scene(scene):
     """
@@ -96,6 +102,7 @@ def advance_quest_if_done():
     print(f"- quest2_done: {quest2_done}")
     print(f"- quest3_done: {quest3_done}")
     print(f"- quest4_done: {quest4_done}")
+    print(f"- quest5_done: {quest5_done}")
     print(f"Index de quête actuel: {current_quest_index}")
     print(f"Game scene présente: {_game_scene is not None}")
     
@@ -109,6 +116,9 @@ def advance_quest_if_done():
         current_quest_index = 4
         print("→ Progression: Passage à la quête 4")
     elif quest4_done and current_quest_index == 4:
+        current_quest_index = 5
+        print("→ Progression: Passage à la quête 5")
+    elif quest5_done and current_quest_index == 5:
         print("→ Toutes les quêtes sont terminées!")
         # Mettre current_quest_index à None pour indiquer la fin
         current_quest_index = None

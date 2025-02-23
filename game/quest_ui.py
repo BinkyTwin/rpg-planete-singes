@@ -1,25 +1,26 @@
 import pygame
 
-# Constantes pour la position et l'apparence du rectangle de quête
-QUEST_RECT_WIDTH = 300  # Largeur du rectangle
-QUEST_RECT_HEIGHT = 40  # Hauteur du rectangle
-QUEST_RECT_MARGIN = 10  # Marge par rapport au bord de l'écran
-QUEST_RECT_COLOR = (50, 50, 50)  # Couleur de fond (gris foncé)
-QUEST_TEXT_COLOR = (255, 255, 255)  # Couleur du texte (blanc)
-QUEST_FONT_SIZE = 20  # Taille de la police
+## Constantes pour la position et l'apparence du rectangle de quête
+QUEST_RECT_WIDTH = 350  # Augmenté pour plus de visibilité
+QUEST_RECT_HEIGHT = 60  # Augmenté pour un affichage plus grand
+QUEST_RECT_MARGIN = 15  # Garde une marge adéquate
+QUEST_RECT_COLOR = (34, 51, 0)  # Vert forêt foncé (inchangé)
+QUEST_TEXT_COLOR = (255, 255, 255)  # Rouge vif pour attirer l'attention
+QUEST_FONT_SIZE = 24  # Augmenté pour une meilleure lisibilité
 
 # Constantes pour le panneau des touches
-SHORTCUT_RECT_HEIGHT = 140  # Augmentation de la hauteur pour accommoder la nouvelle ligne
-SHORTCUT_RECT_COLOR = (50, 50, 50, 192)  # Couleur de fond avec transparence
-SHORTCUT_TEXT_COLOR = (255, 255, 255)  # Couleur du texte
-SHORTCUT_FONT_SIZE = 18  # Taille de la police
+SHORTCUT_RECT_HEIGHT = 140
+SHORTCUT_RECT_COLOR = (50, 50, 50, 192)
+SHORTCUT_TEXT_COLOR = (255, 255, 255)
+SHORTCUT_FONT_SIZE = 17
 
 # Dictionnaire des textes de quêtes selon l'index
 QUEST_TEXTS = {
     1: "Quête 1 : Parler au PNJ !",
     2: "Quête 2 : Ramasser l'arme !",
     3: "Quête 3 : Ramasser la potion !",
-    4: "Quête 4 : allez au bout de la montagne ! "
+    4: "Quête 4 : Battre l'ennemi !",
+    5: "Quête 5 : Atteindre le bout de la montagne !"
 }
 
 # Police pour le texte des quêtes (initialisée lors du premier appel)
@@ -82,7 +83,8 @@ class QuestJournal:
             ("Quête 1: Parler au PNJ", quest_system.quest1_done),
             ("Quête 2: Ramasser l'arme", quest_system.quest2_done),
             ("Quête 3: Ramasser la potion", quest_system.quest3_done),
-            ("Quête 4: Atteindre la zone finale", quest_system.quest4_done)
+            ("Quête 4: Battre l'ennemi", quest_system.quest4_done),
+            ("Quête 5: Atteindre la zone finale", quest_system.quest5_done)
         ]
         
         for quest_text, is_done in quests:
@@ -159,11 +161,32 @@ def draw_current_quest(screen, current_quest_index):
     rect_x = screen.get_width() - QUEST_RECT_WIDTH - QUEST_RECT_MARGIN
     rect_y = QUEST_RECT_MARGIN
     
-    # Dessiner le rectangle semi-transparent
+    # Créer le rectangle principal avec un effet de profondeur
+    shadow_rect = pygame.Surface((QUEST_RECT_WIDTH, QUEST_RECT_HEIGHT))
+    shadow_rect.fill((20, 30, 0))  # Ombre plus foncée
+    shadow_rect.set_alpha(192)
+    screen.blit(shadow_rect, (rect_x + 4, rect_y + 4))  # Décalage de l'ombre
+    
+    # Rectangle principal
     quest_rect = pygame.Surface((QUEST_RECT_WIDTH, QUEST_RECT_HEIGHT))
     quest_rect.fill(QUEST_RECT_COLOR)
-    quest_rect.set_alpha(192)  # 75% opaque
+    quest_rect.set_alpha(230)  # Plus opaque
     screen.blit(quest_rect, (rect_x, rect_y))
+    
+    # Ajouter une bordure décorative
+    border_color = (145, 190, 90)  # Vert clair pour la bordure
+    pygame.draw.rect(screen, border_color, 
+                    pygame.Rect(rect_x, rect_y, QUEST_RECT_WIDTH, QUEST_RECT_HEIGHT), 
+                    2, border_radius=10)
+    
+    # Ajouter des détails décoratifs (coins stylisés)
+    corner_size = 8
+    for corner in [(rect_x, rect_y), 
+                  (rect_x + QUEST_RECT_WIDTH - corner_size, rect_y),
+                  (rect_x, rect_y + QUEST_RECT_HEIGHT - corner_size),
+                  (rect_x + QUEST_RECT_WIDTH - corner_size, rect_y + QUEST_RECT_HEIGHT - corner_size)]:
+        pygame.draw.rect(screen, (168, 214, 113), 
+                        pygame.Rect(corner[0], corner[1], corner_size, corner_size))
     
     # Centrer le texte dans le rectangle
     text_x = rect_x + (QUEST_RECT_WIDTH - text_surface.get_width()) // 2
