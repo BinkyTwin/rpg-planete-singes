@@ -34,7 +34,13 @@ class Game:
         try:
             global pygame
             pygame.init()
+            pygame.mixer.init()  # Initialisation du module de son
             print("Pygame initialisé avec succès", flush=True)
+            
+            # Initialisation de la musique de fond
+            self.background_music = pygame.mixer.Sound("music/Background.mp3")
+            self.background_music.set_volume(0.4)  # Volume à 50%
+            self.background_music.play(loops=-1)  # -1 pour une répétition infinie
             
             # Initialiser le gestionnaire d'affichage
             self.display_manager = DisplayManager()
