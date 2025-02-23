@@ -8,11 +8,18 @@ QUEST_RECT_COLOR = (50, 50, 50)  # Couleur de fond (gris foncé)
 QUEST_TEXT_COLOR = (255, 255, 255)  # Couleur du texte (blanc)
 QUEST_FONT_SIZE = 20  # Taille de la police
 
+# Constantes pour le panneau des touches
+SHORTCUT_RECT_HEIGHT = 120  # Hauteur du rectangle des raccourcis
+SHORTCUT_RECT_COLOR = (50, 50, 50, 192)  # Couleur de fond avec transparence
+SHORTCUT_TEXT_COLOR = (255, 255, 255)  # Couleur du texte
+SHORTCUT_FONT_SIZE = 18  # Taille de la police
+
 # Dictionnaire des textes de quêtes selon l'index
 QUEST_TEXTS = {
-    1: "Quête 1 : Parler au PNJ",
-    2: "Quête 2 : Ramasser l'arme",
-    4: "Quête 4 : Aller en (23,1)"
+    1: "Quête 1 : Parler au PNJ !",
+    2: "Quête 2 : Ramasser l'arme !",
+    3: "Quête 3 : Ramasser la potion !",
+    4: "Quête 4 : allez au bout de la montagne ! "
 }
 
 # Police pour le texte des quêtes (initialisée lors du premier appel)
@@ -74,6 +81,7 @@ class QuestJournal:
         quests = [
             ("Quête 1: Parler au PNJ", quest_system.quest1_done),
             ("Quête 2: Ramasser l'arme", quest_system.quest2_done),
+            ("Quête 3: Ramasser la potion", quest_system.quest3_done),
             ("Quête 4: Atteindre la zone finale", quest_system.quest4_done)
         ]
         
@@ -85,6 +93,45 @@ class QuestJournal:
             quest_surface = self.font.render(f"{quest_text} - {status}", True, color)
             self.screen.blit(quest_surface, (self.x + 30, y_offset))
             y_offset += line_height
+
+def draw_shortcut_panel(screen):
+    """
+    Dessine le panneau des touches de raccourci en bas du rectangle de quête.
+    """
+    global _quest_font
+    
+    # Initialisation de la police si pas encore fait
+    if _quest_font is None:
+        _quest_font = pygame.font.Font(None, SHORTCUT_FONT_SIZE)
+    
+    # Position du panneau (en dessous du rectangle de quête)
+    panel_x = screen.get_width() - QUEST_RECT_WIDTH - QUEST_RECT_MARGIN
+    panel_y = QUEST_RECT_MARGIN + QUEST_RECT_HEIGHT + 5  # 5 pixels de marge entre les rectangles
+    
+    # Créer la surface semi-transparente
+    shortcut_panel = pygame.Surface((QUEST_RECT_WIDTH, SHORTCUT_RECT_HEIGHT), pygame.SRCALPHA)
+    shortcut_panel.fill(SHORTCUT_RECT_COLOR)
+    
+    # Liste des raccourcis à afficher
+    shortcuts = [
+        "Touches de raccourci :",
+        "J : Journal de quêtes",
+        "I : Inventaire",
+        "E : Parler au PNJ",
+        "E : Ramasser une arme",
+        "E : Ramasser une potion"
+    ]
+    
+    # Afficher chaque ligne de texte
+    y_offset = 5
+    for text in shortcuts:
+        text_surface = _quest_font.render(text, True, SHORTCUT_TEXT_COLOR)
+        text_x = (QUEST_RECT_WIDTH - text_surface.get_width()) // 2
+        shortcut_panel.blit(text_surface, (text_x, y_offset))
+        y_offset += 20
+    
+    # Afficher le panneau
+    screen.blit(shortcut_panel, (panel_x, panel_y))
 
 def draw_current_quest(screen, current_quest_index):
     """
@@ -121,5 +168,8 @@ def draw_current_quest(screen, current_quest_index):
     text_x = rect_x + (QUEST_RECT_WIDTH - text_surface.get_width()) // 2
     text_y = rect_y + (QUEST_RECT_HEIGHT - text_surface.get_height()) // 2
     screen.blit(text_surface, (text_x, text_y))
+    
+    # Dessiner le panneau des raccourcis
+    draw_shortcut_panel(screen)
     
     print(f"Rectangle de quête dessiné avec le texte: {quest_text}")
