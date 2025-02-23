@@ -15,11 +15,11 @@ class Player:
         },
         'gorille': {
             'agilite': 5,
-            'force': 9,
+            'force': 8,
             'intelligence': 6,
             'furtivite': 4,
             'diplomatie': 5,
-            'hp_max': 120  # Plus de HP pour le gorille
+            'hp_max': 100
         },
         'orang outan': {
             'agilite': 6,
@@ -31,11 +31,11 @@ class Player:
         },
         'bonobo': {
             'agilite': 7,
-            'force': 5,
+            'force': 6,
             'intelligence': 7,
             'furtivite': 9,
             'diplomatie': 9,
-            'hp_max': 90  # Moins de HP pour le bonobo
+            'hp_max': 100  
         },
         'singe hurleur': {
             'agilite': 8,

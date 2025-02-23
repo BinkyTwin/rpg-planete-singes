@@ -1,8 +1,11 @@
 import pytest
+try:
+    import psutil
+except ImportError:
+    pytest.skip("Skipping tests in test_pnj because psutil is not installed", allow_module_level=True)
 import pygame
 import time
 import gc
-import psutil
 import os
 from game.player import Player
 from game.factions import FactionName

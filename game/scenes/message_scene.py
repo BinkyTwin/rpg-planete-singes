@@ -1,7 +1,9 @@
 import pygame
 import os
+import sys 
 from .base_scene import BaseScene
 from game.combat_system import CombatSystem
+import random
 
 class MessageScene(BaseScene):
     def __init__(self, screen, game_state, message, display_manager=None, dialogue_getter=None):
@@ -11,82 +13,89 @@ class MessageScene(BaseScene):
         self.message = message
         self.dialogue_getter = dialogue_getter
         self.combat_system = CombatSystem()
-        self.combat_log = []  # Pour stocker les messages de combat
+        self.combat_log = []
+        self.is_defeated = False
         
-        # Tailles de base pour les polices
+        # -- Polices de base --
         self.base_font_size = 24
         self.base_text_size = 20
         self.update_fonts()
         
-        # Couleurs
-        self.text_color = (255, 255, 255)  # Blanc pour le texte
-        self.button_color = (70, 70, 70, 200)  # Gris foncé semi-transparent pour le bouton
-        self.button_hover_color = (90, 90, 90, 220)  # Gris plus clair pour le survol
-        self.button_text_color = (255, 255, 255)  # Blanc pour le texte du bouton
-        self.dialog_bg_color = (40, 40, 40, 180)  # Fond de la boîte de dialogue
-        self.dialog_border_color = (100, 100, 100, 255)  # Bordure de la boîte de dialogue
-        self.combat_text_color = (255, 200, 0)  # Jaune pour les messages de combat
+        # -- Couleurs / design de la boîte --
+        # On s'inspire du second snippet
+        self.bg_color = (50, 50, 50)                # Fond de la boîte
+        self.dialog_border_color = (255, 255, 255)  # Bordure blanche
+        self.text_color = (255, 255, 255)
+        self.button_color = (100, 100, 100)
+        self.button_hover_color = (150, 150, 150)
+        self.button_text_color = (255, 255, 255)
         
-        # Dimensions de la boîte de dialogue
+        # -- Dimensions de la boîte de dialogue --
         self.padding = 20
-        self.button_padding = 10
         
-        # Calcul des dimensions du texte
-        self.text_surface = self.text_font.render(message, True, self.text_color)
-        text_width = self.text_surface.get_width()
-        text_height = self.text_surface.get_height()
-        
-        # Dimensions de la boîte de dialogue
-        self.dialog_width = min(500, max(300, text_width + self.padding * 2))
-        self.dialog_height = text_height + self.padding * 3 + 160  # Extra space for combat buttons
-        
-        self.dialog_rect = pygame.Rect(
-            (screen.get_width() - self.dialog_width) // 2,
-            (screen.get_height() - self.dialog_height) // 2,
-            self.dialog_width,
-            self.dialog_height
-        )
-        
-        # Configuration des boutons de combat
+        # =============================
+        #  BOUTONS DE COMBAT
+        # =============================
         self.combat_buttons = []
-        button_width = 120
-        button_height = 35
-        button_spacing = 10
-        total_buttons_width = (button_width * 3) + (button_spacing * 2)
-        start_x = self.dialog_rect.centerx - total_buttons_width // 2
-
-        # Création des boutons de combat
         combat_actions = ["Attaquer", "Se défendre", "Fuir"]
-        for i, action in enumerate(combat_actions):
-            button_rect = pygame.Rect(
-                start_x + (button_width + button_spacing) * i,
-                self.dialog_rect.bottom - button_height - 60,
-                button_width,
-                button_height
-            )
+        
+        # Largeur/hauteur fixes pour chaque bouton
+        combat_button_width = 100
+        combat_button_height = 40
+        for action in combat_actions:
+            text_surf = self.text_font.render(action, True, self.button_text_color)
+            text_surf_hover = self.text_font.render(action, True, (200, 200, 200))
             self.combat_buttons.append({
-                'rect': button_rect,
+                'rect': pygame.Rect(0, 0, combat_button_width, combat_button_height),
                 'text': action,
                 'hover': False,
-                'text_surface': self.text_font.render(action, True, self.button_text_color),
-                'text_surface_hover': self.text_font.render(action, True, (200, 200, 200))
+                # On stocke le rendu sous forme de liste pour pouvoir dessiner plusieurs lignes si besoin
+                'lines_surface': [text_surf],
+                'lines_surface_hover': [text_surf_hover]
             })
 
-        # Bouton Quitter
-        self.quit_button = pygame.Rect(
-            self.dialog_rect.centerx - button_width // 2,
-            self.dialog_rect.bottom - button_height - 15,
-            button_width,
-            button_height
-        )
-        self.quit_button_hover = False
+        # =============================
+        #  BOUTONS DE DÉFAITE
+        # =============================
+        self.defeat_buttons = []
+        defeat_actions = ["Quitter"]  # On ne garde que le bouton Quitter
         
-        # Texte du bouton
-        self.quit_text = self.text_font.render("Quitter", True, self.button_text_color)
-        self.quit_text_hover = self.text_font.render("Quitter", True, (200, 200, 200))
+        # Dimensions du bouton
+        defeat_button_width = 100
+        defeat_button_height = 40  # Hauteur standard car plus besoin de 2 lignes
+        for action in defeat_actions:
+            surf = self.text_font.render(action, True, self.button_text_color)
+            surf_hover = self.text_font.render(action, True, (200, 200, 200))
+            
+            self.defeat_buttons.append({
+                'rect': pygame.Rect(0, 0, defeat_button_width, defeat_button_height),
+                'text': action,
+                'hover': False,
+                'lines_surface': [surf],
+                'lines_surface_hover': [surf_hover]
+            })
 
+        # =============================
+        #  BOUTON "QUITTER" (hors défaite)
+        # =============================
+        self.quit_button = pygame.Rect(0, 0, 100, 40)
+        self.quit_button_hover = False
+        quit_surf = self.text_font.render("Quitter", True, self.button_text_color)
+        quit_surf_hover = self.text_font.render("Quitter", True, (200, 200, 200))
+        self.quit_lines_surface = [quit_surf]
+        self.quit_lines_surface_hover = [quit_surf_hover]
+        
+        # Contiendra le texte wrapé du message principal
+        self.wrapped_lines = []
+        
+        # Calcul initial de la taille de la boîte
+        self.update_dialog_dimensions()
+
+    # --------------------------------------------------------------------
+    #   FONCTIONS UTILITAIRES
+    # --------------------------------------------------------------------
     def update_fonts(self):
-        """Met à jour les polices en fonction de l'échelle"""
+        """Met à jour les polices en fonction de l'échelle."""
         if self.display_manager:
             font_size = self.display_manager.get_scaled_font_size(self.base_font_size)
             text_size = self.display_manager.get_scaled_font_size(self.base_text_size)
@@ -97,8 +106,108 @@ class MessageScene(BaseScene):
         self.font = pygame.font.SysFont("arial", font_size)
         self.text_font = pygame.font.SysFont("arial", text_size)
 
+    def _wrap_text(self, text, font, max_width):
+        """
+        Découpe 'text' en plusieurs lignes pour ne pas dépasser 'max_width'.
+        Retourne (lines, total_height, max_line_width).
+        """
+        words = text.split()
+        lines = []
+        current_line = []
+        current_width = 0
+        line_height = font.get_linesize()
+        total_height = 0
+
+        for word in words:
+            # Rendu provisoire pour connaître la largeur
+            word_surface = font.render(word + " ", True, self.text_color)
+            word_width = word_surface.get_width()
+
+            if current_width + word_width > max_width:
+                lines.append(" ".join(current_line))
+                current_line = [word]
+                current_width = word_width
+                total_height += line_height
+            else:
+                current_line.append(word)
+                current_width += word_width
+
+        # Dernière ligne
+        if current_line:
+            lines.append(" ".join(current_line))
+            total_height += line_height
+
+        # Calcul de la largeur maximale réelle
+        max_line_width = 0
+        for line in lines:
+            line_surface = font.render(line, True, self.text_color)
+            if line_surface.get_width() > max_line_width:
+                max_line_width = line_surface.get_width()
+
+        return lines, total_height, max_line_width
+
+    def update_dialog_dimensions(self):
+        """Met à jour la taille de la boîte de dialogue et la position des boutons en fonction du texte."""
+        max_dialog_inner_width = 500 - self.padding * 2
+
+        # Wrap du message
+        self.wrapped_lines, wrapped_text_height, max_line_width = self._wrap_text(
+            self.message,
+            self.text_font,
+            max_dialog_inner_width
+        )
+
+        # Calcul final
+        self.dialog_width = min(500, max(300, max_line_width + self.padding * 2))
+        self.dialog_height = wrapped_text_height + self.padding * 3 + 160
+
+        # Centrage de la boîte
+        self.dialog_rect = pygame.Rect(
+            (self.screen.get_width() - self.dialog_width) // 2,
+            (self.screen.get_height() - self.dialog_height) // 2,
+            self.dialog_width,
+            self.dialog_height
+        )
+
+        # Placement des boutons
+        button_spacing = 20
+        if not self.is_defeated:
+            combat_button_width = self.combat_buttons[0]['rect'].width
+            combat_button_height = self.combat_buttons[0]['rect'].height
+            total_buttons_width = (combat_button_width * 3) + (button_spacing * 2)
+            start_x = self.dialog_rect.centerx - total_buttons_width // 2
+
+            for i, button in enumerate(self.combat_buttons):
+                button['rect'] = pygame.Rect(
+                    start_x + (combat_button_width + button_spacing) * i,
+                    self.dialog_rect.bottom - combat_button_height - 60,
+                    combat_button_width,
+                    combat_button_height
+                )
+
+            # Bouton Quitter
+            self.quit_button.centerx = self.dialog_rect.centerx
+            self.quit_button.bottom = self.dialog_rect.bottom - 15
+
+        else:
+            defeat_button_width = self.defeat_buttons[0]['rect'].width
+            defeat_button_height = self.defeat_buttons[0]['rect'].height
+            defeat_button_count = len(self.defeat_buttons)
+            total_defeat_width = defeat_button_count * defeat_button_width + (defeat_button_count - 1) * button_spacing
+            start_x_defeat = self.dialog_rect.centerx - total_defeat_width // 2
+
+            for i, button in enumerate(self.defeat_buttons):
+                button['rect'] = pygame.Rect(
+                    start_x_defeat + i * (defeat_button_width + button_spacing),
+                    self.dialog_rect.bottom - defeat_button_height - 60,
+                    defeat_button_width,
+                    defeat_button_height
+                )
+
+    # --------------------------------------------------------------------
+    #   LOGIQUE DE COMBAT
+    # --------------------------------------------------------------------
     def handle_combat_action(self, action):
-        """Gère les actions de combat"""
         if not self.game_state.player:
             print("DEBUG: Pas de joueur trouvé")
             return
@@ -107,84 +216,58 @@ class MessageScene(BaseScene):
             print("DEBUG: PNJ2 non trouvé")
             return
 
-        # Réinitialiser le combat_log au début de chaque action
+        if self.is_defeated:
+            return None
+
         self.combat_log = []
 
-        print(f"DEBUG: Action de combat: {action}")
-        print(f"DEBUG: HP Joueur: {self.game_state.player.hp}")
-        print(f"DEBUG: HP PNJ2: {self.game_state.pnj2.hp}")
-
         if action == "Attaquer":
-            # Récupérer l'arme équipée du joueur
             weapon = None
             if hasattr(self.game_state.player, 'inventory'):
                 weapon = self.game_state.player.inventory.get_equipped_weapon()
-                print(f"DEBUG: Arme équipée: {weapon.name if weapon else 'aucune'}")
 
-            # Le joueur attaque
             damage_player, is_enemy_dead = self.combat_system.attack(
                 self.game_state.player,
                 self.game_state.pnj2,
                 weapon,
-                False  # Pas en mode défense
+                False
             )
-            
-            print(f"DEBUG: Dégâts infligés par le joueur: {damage_player}")
-            
-            # Ajouter le message de combat
             self.combat_log.append(f"Vous attaquez et infligez {damage_player} dégâts !")
             self.combat_log.append(f"PNJ2 HP: {self.game_state.pnj2.hp}/{self.game_state.pnj2.max_hp}")
-
             if is_enemy_dead:
                 self.combat_log.append("Victoire ! Le PNJ2 est vaincu !")
                 self.message = "\n".join(self.combat_log)
                 self.update_dialog_dimensions()
                 return 'game'
 
-            # Le PNJ2 riposte avec son épée rouillée
-            damage_enemy, is_player_dead = self.combat_system.attack(
-                self.game_state.pnj2,
-                self.game_state.player,
-                self.game_state.pnj2.held_item,  # Utilise l'épée rouillée du PNJ2
-                False  # Pas en mode défense
-            )
-            
-            print(f"DEBUG: Dégâts infligés par le PNJ2: {damage_enemy}")
-            
-            self.combat_log.append(f"L'ennemie riposte avec son épée rouillée et vous inflige {damage_enemy} dégâts !")
-            self.combat_log.append(f"Vos HP: {self.game_state.player.hp}/{self.game_state.player.max_hp}")
-
-            if is_player_dead:
-                self.combat_log.append("Défaite ! Vous avez été vaincu !")
-                self.message = "\n".join(self.combat_log)
-                self.update_dialog_dimensions()
-                return 'game'
-
-        elif action == "Se défendre":
-            # Le joueur se défend (réduction des dégâts de 95%)
-            self.combat_log.append("Vous vous mettez en position défensive.")
-            
-            # Le PNJ2 attaque avec son épée rouillée
             damage_enemy, is_player_dead = self.combat_system.attack(
                 self.game_state.pnj2,
                 self.game_state.player,
                 self.game_state.pnj2.held_item,
-                True  # Mode défense activé
+                False
             )
-            
-            self.combat_log.append(f"Le PNJ2 attaque mais vous bloquez la majorité des dégâts !")
+            self.combat_log.append(f"L'ennemi riposte et vous inflige {damage_enemy} dégâts !")
+            self.combat_log.append(f"Vos HP: {self.game_state.player.hp}/{self.game_state.player.max_hp}")
+            if is_player_dead:
+                self.handle_player_death("Défaite ! Vous avez été vaincu !")
+                return None
+
+        elif action == "Se défendre":
+            self.combat_log.append("Vous vous mettez en position défensive.")
+            damage_enemy, is_player_dead = self.combat_system.attack(
+                self.game_state.pnj2,
+                self.game_state.player,
+                self.game_state.pnj2.held_item,
+                True
+            )
+            self.combat_log.append("Le PNJ2 attaque, mais vous bloquez la majorité des dégâts !")
             self.combat_log.append(f"Vous ne subissez que {damage_enemy} dégâts.")
             self.combat_log.append(f"Vos HP: {self.game_state.player.hp}/{self.game_state.player.max_hp}")
-
             if is_player_dead:
-                self.combat_log.append("Défaite ! Vous avez été vaincu malgré votre défense !")
-                self.message = "\n".join(self.combat_log)
-                self.update_dialog_dimensions()
-                return 'game'
+                self.handle_player_death("Défaite ! Vous avez été vaincu malgré votre défense !")
+                return None
 
         elif action == "Fuir":
-            # 50% de chance de réussir à fuir
-            import random
             if random.random() < 0.5:
                 self.combat_log.append("Vous réussissez à fuir le combat !")
                 self.message = "\n".join(self.combat_log)
@@ -192,80 +275,62 @@ class MessageScene(BaseScene):
                 return 'game'
             else:
                 self.combat_log.append("Vous n'arrivez pas à fuir !")
-                
-                # Le PNJ2 attaque pendant la tentative de fuite
                 damage_enemy, is_player_dead = self.combat_system.attack(
                     self.game_state.pnj2,
                     self.game_state.player,
                     self.game_state.pnj2.held_item,
                     False
                 )
-                
-                self.combat_log.append(f"Le PNJ2 vous attaque pendant votre tentative de fuite et inflige {damage_enemy} dégâts !")
+                self.combat_log.append(f"Le PNJ2 vous attaque pendant votre fuite et inflige {damage_enemy} dégâts !")
                 self.combat_log.append(f"Vos HP: {self.game_state.player.hp}/{self.game_state.player.max_hp}")
-
                 if is_player_dead:
-                    self.combat_log.append("Défaite ! Vous avez été vaincu en essayant de fuir !")
-                    self.message = "\n".join(self.combat_log)
-                    self.update_dialog_dimensions()
-                    return 'game'
+                    self.handle_player_death("Défaite ! Vous avez été vaincu en essayant de fuir !")
+                    return None
 
         # Mettre à jour le message avec le nouveau combat_log
         self.message = "\n".join(self.combat_log)
         self.update_dialog_dimensions()
 
-    def update_dialog_dimensions(self):
-        """Met à jour les dimensions de la boîte de dialogue en fonction du contenu"""
-        # Recalculer les dimensions du texte
-        self.text_surface = self.text_font.render(self.message, True, self.text_color)
-        text_width = self.text_surface.get_width()
-        text_height = self.text_surface.get_height()
-        
-        # Mettre à jour les dimensions de la boîte de dialogue
-        self.dialog_width = min(500, max(300, text_width + self.padding * 2))
-        self.dialog_height = text_height + self.padding * 3 + 160
-        
-        # Mettre à jour la position de la boîte de dialogue
-        self.dialog_rect = pygame.Rect(
-            (self.screen.get_width() - self.dialog_width) // 2,
-            (self.screen.get_height() - self.dialog_height) // 2,
-            self.dialog_width,
-            self.dialog_height
-        )
-        
-        # Mettre à jour la position des boutons
-        button_width = 120
-        button_height = 35
-        button_spacing = 10
-        total_buttons_width = (button_width * 3) + (button_spacing * 2)
-        start_x = self.dialog_rect.centerx - total_buttons_width // 2
+    def handle_player_death(self, death_message):
+        """Gère la mort du joueur"""
+        self.combat_log = [death_message]
+        self.message = "\n".join(self.combat_log)
+        self.is_defeated = True
+        self.game_state.game_over = True
+        self.update_dialog_dimensions()
 
-        for i, button in enumerate(self.combat_buttons):
-            button['rect'] = pygame.Rect(
-                start_x + (button_width + button_spacing) * i,
-                self.dialog_rect.bottom - button_height - 60,
-                button_width,
-                button_height
-            )
-        
-        self.quit_button.centerx = self.dialog_rect.centerx
-        self.quit_button.bottom = self.dialog_rect.bottom - 15
-
+    # --------------------------------------------------------------------
+    #   GESTION DES ÉVÉNEMENTS
+    # --------------------------------------------------------------------
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:  # Clic gauche
-                if self.quit_button.collidepoint(event.pos):
-                    return 'game'
-                # Vérification des clics sur les boutons de combat
-                for button in self.combat_buttons:
-                    if button['rect'].collidepoint(event.pos):
-                        print(f"Action sélectionnée : {button['text']}")
-                        return self.handle_combat_action(button['text'])
+                if not self.is_defeated:
+                    # Bouton "Quitter" en mode non-défaite
+                    if self.quit_button.collidepoint(event.pos):
+                        return 'game'
+                    # Boutons de combat
+                    for button in self.combat_buttons:
+                        if button['rect'].collidepoint(event.pos):
+                            return self.handle_combat_action(button['text'])
+                else:
+                    # Boutons de défaite
+                    for button in self.defeat_buttons:
+                        if button['rect'].collidepoint(event.pos):
+                            if button['text'] == "Quitter":
+                                print("Fermeture du jeu...")
+                                # Fermeture propre de Pygame
+                                pygame.quit()
+                                # Sortie du programme
+                                sys.exit(0)
         elif event.type == pygame.MOUSEMOTION:
-            self.quit_button_hover = self.quit_button.collidepoint(event.pos)
-            # Mise à jour de l'état de survol des boutons de combat
-            for button in self.combat_buttons:
-                button['hover'] = button['rect'].collidepoint(event.pos)
+            if not self.is_defeated:
+                self.quit_button_hover = self.quit_button.collidepoint(event.pos)
+                for button in self.combat_buttons:
+                    button['hover'] = button['rect'].collidepoint(event.pos)
+            else:
+                for button in self.defeat_buttons:
+                    button['hover'] = button['rect'].collidepoint(event.pos)
         elif event.type == pygame.VIDEORESIZE:
             self.update_fonts()
             self.update_dialog_dimensions()
@@ -274,112 +339,103 @@ class MessageScene(BaseScene):
     def update(self):
         pass
 
+    # --------------------------------------------------------------------
+    #   RENDU
+    # --------------------------------------------------------------------
     def render(self, screen):
-        # Supprimer ou commenter ces lignes pour enlever l'overlay
-        # overlay = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
-        # overlay.fill((0, 0, 0, 100))
+        """
+        Version sans fond noir couvrant tout l'écran
+        et avec un design de boîte inspiré de 'DialogBox'.
+        """
+        # 1) On ne dessine plus d'arrière-plan noir sur tout l'écran.
+        #    (Si vous souhaitez un overlay semi-transparent, décommentez ceci :)
+        #
+        # overlay = pygame.Surface((screen.get_width(), screen.get_height()), pygame.SRCALPHA)
+        # overlay.fill((0, 0, 0, 128))  # un voile semi-transparent
         # screen.blit(overlay, (0, 0))
         
-        # Ajouter un fond opaque à la boîte de dialogue
-        dialog_background = pygame.Surface((self.dialog_rect.width, self.dialog_rect.height))
-        dialog_background.fill((0, 0, 0))  # Fond noir
-        screen.blit(dialog_background, (self.dialog_rect.x, self.dialog_rect.y))
-        
-        # Créer la surface de la boîte de dialogue avec transparence
-        dialog_surface = pygame.Surface(self.dialog_rect.size, pygame.SRCALPHA)
-        
-        # Dessiner le fond de la boîte avec un dégradé
-        for i in range(self.dialog_rect.height):
-            alpha = min(180, 150 + i // 2)  # Dégradé de transparence
-            pygame.draw.line(dialog_surface, (*self.dialog_bg_color[:3], alpha),
-                           (0, i), (self.dialog_rect.width, i))
-        
-        # Ajouter une bordure élégante
-        pygame.draw.rect(dialog_surface, self.dialog_border_color, dialog_surface.get_rect(), 2, border_radius=10)
-        
-        # Rendu du message avec gestion du retour à la ligne
-        words = self.message.split()
-        lines = []
-        current_line = []
-        current_width = 0
-        
-        for word in words:
-            word_surface = self.text_font.render(word + " ", True, self.text_color)
-            word_width = word_surface.get_width()
-            
-            if current_width + word_width > self.dialog_rect.width - self.padding * 2:
-                lines.append(" ".join(current_line))
-                current_line = [word]
-                current_width = word_width
-            else:
-                current_line.append(word)
-                current_width += word_width
-        
-        if current_line:
-            lines.append(" ".join(current_line))
-        
-        # Afficher les lignes de texte
+        # 2) On crée une surface pour la boîte
+        dialog_surface = pygame.Surface((self.dialog_rect.width, self.dialog_rect.height))
+        dialog_surface.fill(self.bg_color)  # Fond uni
+        # Bordure blanche
+        pygame.draw.rect(
+            dialog_surface,
+            self.dialog_border_color,
+            dialog_surface.get_rect(),
+            width=2,         # Épaisseur de la bordure
+            border_radius=10 # Coins arrondis
+        )
+
+        # 3) Affichage du texte principal (wrapé)
         y_offset = self.padding
-        for line in lines:
+        for line in self.wrapped_lines:
             line_surface = self.text_font.render(line, True, self.text_color)
             text_rect = line_surface.get_rect(centerx=self.dialog_rect.width // 2, top=y_offset)
             dialog_surface.blit(line_surface, text_rect)
             y_offset += line_surface.get_height() + 5
 
-        # Rendu des boutons de combat
-        for button in self.combat_buttons:
-            # Effet d'ombre du bouton
+        # 4) Choix des boutons à afficher
+        if self.is_defeated:
+            buttons_to_render = self.defeat_buttons
+        else:
+            buttons_to_render = self.combat_buttons
+
+        # 5) Dessin des boutons
+        for button in buttons_to_render:
+            # Ombre légère (optionnel)
             shadow_rect = button['rect'].copy()
             shadow_rect.x -= self.dialog_rect.x
             shadow_rect.y -= self.dialog_rect.y
-            shadow_rect.y += 2
-            pygame.draw.rect(dialog_surface, (30, 30, 30, 150), shadow_rect, border_radius=5)
+            shadow_rect.y += 2  # décalage vertical
+            pygame.draw.rect(dialog_surface, (30, 30, 30), shadow_rect, border_radius=5)
             
             # Corps du bouton
             button_rect = button['rect'].copy()
             button_rect.x -= self.dialog_rect.x
             button_rect.y -= self.dialog_rect.y
-            button_color = self.button_hover_color if button['hover'] else self.button_color
-            pygame.draw.rect(dialog_surface, button_color, button_rect, border_radius=5)
+            color = self.button_hover_color if button['hover'] else self.button_color
+            pygame.draw.rect(dialog_surface, color, button_rect, border_radius=5)
             
-            # Bordure brillante du bouton
-            if button['hover']:
-                pygame.draw.rect(dialog_surface, (120, 120, 120, 255), button_rect, 2, border_radius=5)
-            else:
-                pygame.draw.rect(dialog_surface, (90, 90, 90, 255), button_rect, 2, border_radius=5)
+            # Bordure
+            pygame.draw.rect(dialog_surface, (255, 255, 255), button_rect, 1, border_radius=5)
             
-            # Texte du bouton
-            text_surface = button['text_surface_hover'] if button['hover'] else button['text_surface']
-            text_rect = text_surface.get_rect(center=button_rect.center)
-            dialog_surface.blit(text_surface, text_rect)
-        
-        # Dessiner le bouton Quitter
-        button_relative_rect = pygame.Rect(
-            self.quit_button.x - self.dialog_rect.x,
-            self.quit_button.y - self.dialog_rect.y,
-            self.quit_button.width,
-            self.quit_button.height
-        )
-        
-        # Effet d'ombre du bouton
-        shadow_rect = button_relative_rect.copy()
-        shadow_rect.y += 2
-        pygame.draw.rect(dialog_surface, (30, 30, 30, 150), shadow_rect, border_radius=5)
-        
-        # Corps du bouton
-        button_color = self.button_hover_color if self.quit_button_hover else self.button_color
-        pygame.draw.rect(dialog_surface, button_color, button_relative_rect, border_radius=5)
-        
-        # Bordure brillante du bouton
-        if self.quit_button_hover:
-            pygame.draw.rect(dialog_surface, (120, 120, 120, 255), button_relative_rect, 2, border_radius=5)
-        else:
-            pygame.draw.rect(dialog_surface, (90, 90, 90, 255), button_relative_rect, 2, border_radius=5)
-        
-        # Texte du bouton
-        text_to_use = self.quit_text_hover if self.quit_button_hover else self.quit_text
-        text_rect = text_to_use.get_rect(center=button_relative_rect.center)
-        dialog_surface.blit(text_to_use, text_rect)
-        
-        # Afficher la boîte de dialogue
+            # Texte (multilignes)
+            lines = button['lines_surface_hover'] if button['hover'] else button['lines_surface']
+            total_lines_height = sum(s.get_height() for s in lines)
+            current_y = button_rect.centery - total_lines_height // 2
+            for surf in lines:
+                line_rect = surf.get_rect(centerx=button_rect.centerx, y=current_y)
+                dialog_surface.blit(surf, line_rect)
+                current_y += surf.get_height()
+
+        # 6) Bouton "Quitter" (si pas en défaite)
+        if not self.is_defeated:
+            button_relative_rect = pygame.Rect(
+                self.quit_button.x - self.dialog_rect.x,
+                self.quit_button.y - self.dialog_rect.y,
+                self.quit_button.width,
+                self.quit_button.height
+            )
+            # Ombre
+            shadow_rect = button_relative_rect.copy()
+            shadow_rect.y += 2
+            pygame.draw.rect(dialog_surface, (30, 30, 30), shadow_rect, border_radius=5)
+            
+            # Corps
+            color = self.button_hover_color if self.quit_button_hover else self.button_color
+            pygame.draw.rect(dialog_surface, color, button_relative_rect, border_radius=5)
+            
+            # Bordure
+            pygame.draw.rect(dialog_surface, (255, 255, 255), button_relative_rect, 1, border_radius=5)
+            
+            # Texte (monoligne)
+            lines = self.quit_lines_surface_hover if self.quit_button_hover else self.quit_lines_surface
+            total_lines_height = sum(s.get_height() for s in lines)
+            current_y = button_relative_rect.centery - total_lines_height // 2
+            for surf in lines:
+                line_rect = surf.get_rect(centerx=button_relative_rect.centerx, y=current_y)
+                dialog_surface.blit(surf, line_rect)
+                current_y += surf.get_height()
+
+        # 7) On blit la boîte sur l'écran
         screen.blit(dialog_surface, self.dialog_rect)

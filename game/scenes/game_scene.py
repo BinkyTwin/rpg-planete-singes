@@ -350,7 +350,7 @@ class GameScene(BaseScene):
         """Rendu de la scène de jeu"""
         print("=== DEBUG: Rendu de la scène de jeu ===")
         # Effacer l'écran
-        screen.fill((0, 0, 0))
+        #screen.fill((0, 0, 0))
         
         if self.tiled_map and self.game_state.player:
             # Mettre à jour la position de la caméra
