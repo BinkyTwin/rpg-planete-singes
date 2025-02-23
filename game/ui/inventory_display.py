@@ -151,10 +151,10 @@ class InventoryDisplay:
 
         if self.dialog_box['yes_rect'].collidepoint(pos):
             potion = self.dialog_box['potion']
-            # Équiper la potion temporairement
-            inventory.equip_item(potion)
-            # Soigner le joueur
+            # Soigner le joueur avant de supprimer la potion
+            old_hp = player.hp
             player.hp = min(player.hp + potion.value, player.max_hp)
+            print(f"DEBUG - Consommation potion: HP {old_hp} -> {player.hp} (max: {player.max_hp})")
             # Supprimer la potion de l'inventaire
             inventory.remove_item(potion)
             self.dialog_box = None
