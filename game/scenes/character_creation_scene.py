@@ -5,12 +5,16 @@ from .base_scene import BaseScene
 from ..player import Player
 from ..factions import FactionName, FACTIONS
 from ..display_manager import DisplayManager
+from ..database import GameDatabase
 
 class CharacterCreationScene(BaseScene):
     def __init__(self, screen, game_state, display_manager=None):
         super().__init__(screen, game_state)
         self.screen = screen
         self.display_manager = display_manager
+        
+        # Initialisation de la base de données
+        self.db = GameDatabase()
         
         # Tailles de base pour les polices
         self.base_title_size = 48
@@ -470,4 +474,21 @@ class CharacterCreationScene(BaseScene):
             y=28,
             race=self.races[self.selected_race],
             faction=self.factions[self.selected_faction]
-        ) 
+        )
+        
+        # Sauvegarde du joueur dans la base de données
+        try:
+            player_id = self.db.save_player(self.game_state.player)
+            if player_id:
+                print(f"Joueur {self.name} sauvegardé avec l'ID {player_id}")
+                # Sauvegarde de l'inventaire initial (vide)
+                self.db.save_inventory(player_id, self.game_state.player.inventory)
+            else:
+                print(f"Erreur lors de la sauvegarde du joueur {self.name}")
+        except Exception as e:
+            print(f"Erreur lors de la sauvegarde du joueur : {e}")
+
+    def __del__(self):
+        """Ferme la connexion à la base de données lors de la destruction de la scène"""
+        if hasattr(self, 'db'):
+            self.db.close() 

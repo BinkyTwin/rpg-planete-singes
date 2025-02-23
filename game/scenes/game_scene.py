@@ -10,6 +10,7 @@ from ..quest_ui import draw_current_quest, QuestJournal
 from ..ui.health_display import HealthDisplay
 from ..ui.inventory_display import InventoryDisplay
 import game.quest_system as quest_system
+from ..database import GameDatabase
 
 class GameScene(BaseScene):
     def __init__(self, screen, game_state, display_manager=None):
@@ -90,6 +91,12 @@ class GameScene(BaseScene):
         }
         self.in_combat_zone = False
         self.combat_dialog_active = False
+        
+        # Initialisation de la base de données
+        self.db = GameDatabase()
+        
+        # Temps de début de la partie
+        self.start_time = pygame.time.get_ticks()
 
     def update_fonts(self):
         """Met à jour les polices en fonction de l'échelle"""
@@ -290,6 +297,14 @@ class GameScene(BaseScene):
             # Marquer l'item comme collecté
             item.collected = True
             print(f"DEBUG: Item {item.name} marqué comme collecté")
+            
+            # Sauvegarder l'inventaire dans la base de données
+            try:
+                player_data = self.db.load_player(self.game_state.player.name)
+                if player_data:
+                    self.db.save_inventory(player_data['id'], self.game_state.player.inventory)
+            except Exception as e:
+                print(f"Erreur lors de la sauvegarde de l'inventaire : {e}")
             
             # Forcer une mise à jour immédiate de l'affichage de l'inventaire
             if self.inventory_display and self.inventory_display.visible:
@@ -624,3 +639,24 @@ class GameScene(BaseScene):
         print("→ Appuyez sur Espace ou Échap pour fermer")
         print("→ État final de la boîte de dialogue:", self.dialog_box is not None)
         print("=====================================\n")
+
+    def save_player_lifespan(self):
+        """Sauvegarde la durée de vie du joueur"""
+        if self.game_state.player:
+            try:
+                # Calculer la durée en secondes
+                duration = (pygame.time.get_ticks() - self.start_time) // 1000
+                
+                # Charger les données du joueur
+                player_data = self.db.load_player(self.game_state.player.name)
+                if player_data:
+                    # Sauvegarder la durée de vie
+                    self.db.save_lifespan(player_data['id'], duration)
+            except Exception as e:
+                print(f"Erreur lors de la sauvegarde de la durée de vie : {e}")
+
+    def __del__(self):
+        """Ferme la connexion à la base de données et sauvegarde la durée de vie"""
+        self.save_player_lifespan()
+        if hasattr(self, 'db'):
+            self.db.close()
