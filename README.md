@@ -75,7 +75,7 @@ Chaque nouvelle fonctionnalité est accompagnée de tests unitaires pour assurer
 
 ## Contributeurs
 
-- Auteur principal : Manissa Bouda , Abdelatif Djeddou , Mathis Beauchamp, Diahra Traore, Ghezlan Ben Bennasser, Reda Oubenal
+- Auteur principal : Manissa Bouda , Abdelatif Djeddou
 
 ---
 
